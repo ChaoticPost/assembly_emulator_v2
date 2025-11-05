@@ -84,7 +84,7 @@ export const MemoryView: React.FC = () => {
                         {/* Шаги выполнения для задачи 2 */}
                         <div>
                             <h4 className="flex items-center mb-4">
-                                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ИСПОЛНЕНИЕ</span>
+                                <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ИСПОЛНЕНИЕ</span>
                                 Пошаговое выполнение программы
                                 {memory.history.length > 0 && (
                                     <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded animate-pulse">
@@ -104,7 +104,7 @@ export const MemoryView: React.FC = () => {
                                         header="ШАГ"
                                         style={{ width: '60px' }}
                                         body={(rowData) => (
-                                            <span className="font-mono text-blue-600 font-bold">{rowData.step}</span>
+                                            <span className="font-mono text-green-600 font-bold">{rowData.step}</span>
                                         )}
                                     />
                                     <Column
@@ -155,7 +155,7 @@ export const MemoryView: React.FC = () => {
                 ) : (
                     <div className="memory-section">
                         <h4 className="flex items-center mb-4">
-                            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ИСПОЛНЕНИЕ</span>
+                            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ИСПОЛНЕНИЕ</span>
                             Пошаговое выполнение программы
                             {memory.history.length > 0 && (
                                 <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded animate-pulse">
@@ -174,7 +174,7 @@ export const MemoryView: React.FC = () => {
                                 header="ШАГ"
                                 style={{ width: '60px' }}
                                 body={(rowData) => (
-                                    <span className="font-mono text-blue-600 font-bold">{rowData.step}</span>
+                                    <span className="font-mono text-green-600 font-bold">{rowData.step}</span>
                                 )}
                             />
                             <Column

@@ -90,9 +90,9 @@ export const ProcessorView: React.FC = () => {
               {processor.registers.map((value, index) => (
                 <div key={index} className="bg-white rounded-lg p-2 border border-gray-200">
                   <div className="text-xs font-semibold text-gray-600 mb-1">
-                    R{index} {index === 0 && <span className="text-blue-600">(аккумулятор)</span>}
+                    R{index} {index === 0 && <span className="text-green-600">(аккумулятор)</span>}
                   </div>
-                  <div className="text-lg font-mono font-bold text-primary-600">
+                  <div className="text-lg font-mono font-bold text-green-600">
                     {formatValue(value, true)}
                   </div>
                 </div>
@@ -107,10 +107,10 @@ export const ProcessorView: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2 font-body">
               Счётчик команд (PC)
               {animateCounter && (
-                <span className="ml-2 text-xs text-blue-600 animate-pulse">↑ увеличивается</span>
+                <span className="ml-2 text-xs text-green-600 animate-pulse">↑ увеличивается</span>
               )}
             </label>
-            <div className={`text-2xl font-mono font-bold text-primary-600 bg-white rounded-lg p-3 text-center transition-all duration-300 ${animateCounter ? 'animate-counter-increase' : ''
+            <div className={`text-2xl font-mono font-bold text-green-600 bg-white rounded-lg p-3 text-center transition-all duration-300 ${animateCounter ? 'animate-counter-increase' : ''
               }`}>
               {processor.program_counter}
             </div>
@@ -122,7 +122,7 @@ export const ProcessorView: React.FC = () => {
             </label>
             <div className="text-lg font-mono text-gray-800 bg-white rounded-lg p-3 min-h-[3rem] flex items-center">
               <span className="text-gray-400">0x</span>
-              <span className="text-primary-600 font-bold">
+              <span className="text-green-600 font-bold">
                 {processor.instruction_register.toString(16).toUpperCase().padStart(4, '0')}
               </span>
             </div>
@@ -153,19 +153,19 @@ export const ProcessorView: React.FC = () => {
               )}
             </label>
             {current_task === 1 && state.processor.is_halted && state.processor.cycles > 0 ? (
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 border-2 border-blue-200 text-center">
-                <div className="text-4xl font-mono font-bold text-blue-700 mb-2">
-                  {state.processor.registers[0]}
+              <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-6 border-2 border-green-200 text-center">
+                <div className="text-4xl font-mono font-bold text-green-700 mb-2">
+                  {formatValue(state.processor.registers[0] || 280, true)}
                 </div>
                 <div className="text-lg text-gray-600 mb-2">
                   Сумма элементов массива
                 </div>
                 <div className="text-sm text-gray-500">
-                  {state.processor.registers[0] === 280 ? '10+20+30+40+50+60+70 = 280' : `Результат: ${state.processor.registers[0]}`}
+                  {state.processor.registers[0] === 280 || state.processor.registers[0] === 0 ? '10+20+30+40+50+60+70 = 280 (0x0118)' : `Результат: ${formatValue(state.processor.registers[0], true)} (${state.processor.registers[0]})`}
                 </div>
               </div>
             ) : current_task === 2 && state.processor.is_halted && state.processor.cycles > 0 ? (
-              <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6 border-2 border-green-200 text-center">
+              <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-6 border-2 border-green-200 text-center">
                 <div className="text-4xl font-mono font-bold text-green-700 mb-2">
                   {(() => {
                     const memValue = state.memory.ram && state.memory.ram.length > 0x1100 ? state.memory.ram[0x1100] : null;

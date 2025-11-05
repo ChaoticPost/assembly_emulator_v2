@@ -23,9 +23,9 @@
 .processor-card .p-card-title {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1e40af;
+  color: #166534;
   margin-bottom: 24px;
-  text-shadow: 0 2px 4px rgba(30, 64, 175, 0.1);
+  text-shadow: 0 2px 4px rgba(22, 101, 52, 0.1);
 }
 
 .processor-grid {
@@ -39,15 +39,15 @@
   flex-direction: column;
   gap: 12px;
   padding: 20px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(30, 64, 175, 0.05));
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.05), rgba(22, 163, 74, 0.05));
   border-radius: 12px;
-  border: 1px solid rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.1);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .processor-item:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(30, 64, 175, 0.1));
-  border-color: rgba(59, 130, 246, 0.2);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(22, 163, 74, 0.1));
+  border-color: rgba(34, 197, 94, 0.2);
   transform: translateY(-2px);
 }
 
@@ -63,7 +63,7 @@
 .value-display {
   padding: 16px;
   background: rgba(255, 255, 255, 0.8);
-  border: 2px solid rgba(59, 130, 246, 0.1);
+  border: 2px solid rgba(34, 197, 94, 0.1);
   border-radius: 10px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
   font-size: 1rem;

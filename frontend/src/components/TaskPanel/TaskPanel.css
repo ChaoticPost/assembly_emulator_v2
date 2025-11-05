@@ -9,9 +9,9 @@
 .task-card .p-card-title {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1e40af;
+  color: #166534;
   margin-bottom: 20px;
-  text-shadow: 0 2px 4px rgba(30, 64, 175, 0.1);
+  text-shadow: 0 2px 4px rgba(22, 101, 52, 0.1);
 }
 
 .task-buttons {
@@ -29,14 +29,14 @@
   font-weight: 600;
   font-size: 0.9rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: linear-gradient(135deg, #3b82f6, #1e40af);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
   border: none;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
 
 .task-buttons .p-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 8px 20px rgba(34, 197, 94, 0.4);
 }
 
 .task-buttons .p-button:active {
@@ -46,11 +46,11 @@
 .task-description {
   margin-bottom: 24px;
   padding: 20px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(30, 64, 175, 0.1));
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(22, 163, 74, 0.1));
   border-radius: 12px;
-  border-left: 4px solid #3b82f6;
+  border-left: 4px solid #22c55e;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .task-description h4 {
@@ -97,15 +97,15 @@
   font-weight: 600;
   font-size: 0.95rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 2px solid rgba(59, 130, 246, 0.2);
+  border: 2px solid rgba(34, 197, 94, 0.2);
   background: rgba(255, 255, 255, 0.8);
-  color: #3b82f6;
+  color: #22c55e;
 }
 
 .code-actions .p-button:hover {
-  background: linear-gradient(135deg, #3b82f6, #1e40af);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
   color: white;
   border-color: transparent;
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3);
 }

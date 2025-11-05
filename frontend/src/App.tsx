@@ -22,7 +22,7 @@ const App: React.FC = () => {
   }, [loadState]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 p-6 font-body">
+    <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-600 p-6 font-body">
       <div className="max-w-7xl mx-auto">
         <ErrorDisplay error={error} onClose={() => setError(null)} />
         <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6 min-h-[calc(100vh-3rem)]">

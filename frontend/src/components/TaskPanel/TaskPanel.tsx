@@ -65,11 +65,11 @@ export const TaskPanel: React.FC = () => {
       )}
 
       {activeTask && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 animate-fadeInUp">
-          <h4 className="text-lg font-semibold text-blue-900 mb-2 font-heading">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 animate-fadeInUp">
+          <h4 className="text-lg font-semibold text-green-900 mb-2 font-heading">
             {tasks.find(t => t.id === activeTask)?.title}
           </h4>
-          <p className="text-blue-800 text-sm leading-relaxed font-body">
+          <p className="text-green-800 text-sm leading-relaxed font-body">
             {tasks.find(t => t.id === activeTask)?.description}
           </p>
           <div className="mt-3 flex items-center">

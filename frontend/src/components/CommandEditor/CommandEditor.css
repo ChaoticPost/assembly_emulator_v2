@@ -23,16 +23,16 @@
 .command-editor-card .p-card-title {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1e40af;
+  color: #166534;
   margin-bottom: 24px;
-  text-shadow: 0 2px 4px rgba(30, 64, 175, 0.1);
+  text-shadow: 0 2px 4px rgba(22, 101, 52, 0.1);
 }
 
 /* ADD: Tab styling */
 .command-tabs .p-tabview-nav {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(30, 64, 175, 0.05));
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.05), rgba(22, 163, 74, 0.05));
   border-radius: 12px 12px 0 0;
-  border: 1px solid rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.1);
 }
 
 .command-tabs .p-tabview-nav li .p-tabview-nav-link {
@@ -44,19 +44,19 @@
 }
 
 .command-tabs .p-tabview-nav li .p-tabview-nav-link:hover {
-  background: rgba(59, 130, 246, 0.1);
-  color: #1e40af;
+  background: rgba(34, 197, 94, 0.1);
+  color: #166534;
 }
 
 .command-tabs .p-tabview-nav li.p-highlight .p-tabview-nav-link {
-  background: linear-gradient(135deg, #3b82f6, #1e40af);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
   color: white;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
 }
 
 .command-tabs .p-tabview-panels {
   background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.1);
   border-top: none;
   border-radius: 0 0 12px 12px;
   padding: 20px;
@@ -73,15 +73,15 @@
   font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
   font-size: 0.9rem;
   line-height: 1.6;
-  border: 2px solid rgba(59, 130, 246, 0.1);
+  border: 2px solid rgba(34, 197, 94, 0.1);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.9);
   transition: all 0.3s ease;
 }
 
 .assembly-input:focus {
-  border-color: rgba(59, 130, 246, 0.3);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
 }
 
 .editor-actions {
@@ -99,21 +99,21 @@
 
 .program-section {
   padding: 16px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(30, 64, 175, 0.05));
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.05), rgba(22, 163, 74, 0.05));
   border-radius: 8px;
-  border: 1px solid rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.1);
 }
 
 .program-section h4 {
   margin: 0 0 12px 0;
-  color: #1e40af;
+  color: #166534;
   font-size: 1.1rem;
   font-weight: 700;
 }
 
 /* ADD: Help content styling */
 .help-content h4 {
-  color: #1e40af;
+  color: #166534;
   margin-bottom: 16px;
   font-size: 1.2rem;
 }
@@ -128,11 +128,11 @@
   background: rgba(255, 255, 255, 0.8);
   padding: 16px;
   border-radius: 8px;
-  border: 1px solid rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.1);
 }
 
 .command-group h5 {
-  color: #1e40af;
+  color: #166534;
   margin: 0 0 12px 0;
   font-size: 1rem;
   font-weight: 700;
@@ -154,8 +154,8 @@
 }
 
 .command-group code {
-  background: rgba(59, 130, 246, 0.1);
-  color: #1e40af;
+  background: rgba(34, 197, 94, 0.1);
+  color: #166534;
   padding: 2px 6px;
   border-radius: 4px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;

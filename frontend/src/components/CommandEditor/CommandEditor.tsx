@@ -179,7 +179,7 @@ HALT
           <nav className="-mb-px flex space-x-8">
             <button
               className={`border-b-2 py-2 px-1 text-sm font-medium ${activeTab === 'editor'
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-green-500 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               onClick={() => setActiveTab('editor')}
@@ -188,7 +188,7 @@ HALT
             </button>
             <button
               className={`border-b-2 py-2 px-1 text-sm font-medium ${activeTab === 'examples'
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-green-500 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               onClick={() => setActiveTab('examples')}
@@ -197,7 +197,7 @@ HALT
             </button>
             <button
               className={`border-b-2 py-2 px-1 text-sm font-medium ${activeTab === 'help'
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-green-500 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               onClick={() => setActiveTab('help')}
@@ -269,9 +269,9 @@ HALT
           </div>
         ) : activeTab === 'examples' ? (
           <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-lg font-semibold text-blue-900 font-heading">
+                <h4 className="text-lg font-semibold text-green-900 font-heading">
                   Примеры кода для задач
                 </h4>
                 <Button
@@ -294,14 +294,14 @@ HALT
                   {loadingExample ? 'Загрузка...' : 'Загрузить пример'}
                 </Button>
               </div>
-              <p className="text-blue-800 text-sm mb-4 font-body">
+              <p className="text-green-800 text-sm mb-4 font-body">
                 Готовые примеры кода для задач 1 и 2. Скопируйте и вставьте в редактор.
               </p>
 
               {/* Кнопки для выбора примера */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Button
-                  style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}
+                  style={{ backgroundColor: '#22c55e', borderColor: '#22c55e' }}
                   size="sm"
                   onClick={() => handleLoadTaskExample(1)}
                   className="flex items-center justify-center space-x-2 h-12 text-white"
@@ -316,7 +316,7 @@ HALT
                 </Button>
 
                 <Button
-                  style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}
+                  style={{ backgroundColor: '#22c55e', borderColor: '#22c55e' }}
                   size="sm"
                   onClick={() => handleLoadTaskExample(2)}
                   className="flex items-center justify-center space-x-2 h-12 text-white"
@@ -372,10 +372,10 @@ HALT
           <div className="space-y-6">
             <div className="bg-green-50 border border-green-200 rounded-lg p-6">
               <h4 className="text-xl font-bold text-green-900 font-heading mb-4">
-                📚 Справочник по ассемблеру
+                📚 Справочник по ассемблеру RISC
               </h4>
               <p className="text-green-800 text-sm mb-4 font-body">
-                Полное руководство по всем поддерживаемым инструкциям стекового процессора
+                Полное руководство по всем поддерживаемым инструкциям двухадресного RISC процессора
               </p>
             </div>
 
@@ -383,25 +383,29 @@ HALT
               {/* Пересылка данных */}
               <div className="bg-white rounded-lg border border-gray-200 p-4">
                 <h5 className="text-lg font-semibold text-gray-900 font-heading mb-3 flex items-center">
-                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ДАННЫЕ</span>
+                  <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ДАННЫЕ</span>
                   Пересылка данных
                 </h5>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">PUSH &lt;value&gt;</code>
-                    <span className="text-gray-600">поместить значение на стек</span>
+                    <code className="font-mono text-green-600">LDI rd, imm</code>
+                    <span className="text-gray-600">загрузка константы в регистр</span>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">POP</code>
-                    <span className="text-gray-600">извлечь значение со стека</span>
+                    <code className="font-mono text-green-600">MOV rd, rs1</code>
+                    <span className="text-gray-600">копирование регистра</span>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">DUP</code>
-                    <span className="text-gray-600">дублировать верхний элемент</span>
+                    <code className="font-mono text-green-600">LDR rd, [addr]</code>
+                    <span className="text-gray-600">загрузка из памяти (прямая)</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
+                    <code className="font-mono text-green-600">LDRR rd, [rs1]</code>
+                    <span className="text-gray-600">загрузка из памяти (косвенная)</span>
                   </div>
                   <div className="flex justify-between items-center py-1">
-                    <code className="font-mono text-blue-600">SWAP</code>
-                    <span className="text-gray-600">поменять местами два элемента</span>
+                    <code className="font-mono text-green-600">STR rs1, [addr]</code>
+                    <span className="text-gray-600">сохранение в память</span>
                   </div>
                 </div>
               </div>
@@ -414,46 +418,46 @@ HALT
                 </h5>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">ADD</code>
-                    <span className="text-gray-600">сложение</span>
+                    <code className="font-mono text-green-600">ADD rd, rs1, rs2</code>
+                    <span className="text-gray-600">сложение: rd = rs1 + rs2</span>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">SUB</code>
-                    <span className="text-gray-600">вычитание</span>
+                    <code className="font-mono text-green-600">SUB rd, rs1, rs2</code>
+                    <span className="text-gray-600">вычитание: rd = rs1 - rs2</span>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">MUL</code>
-                    <span className="text-gray-600">умножение</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">DIV</code>
-                    <span className="text-gray-600">деление</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">INC</code>
-                    <span className="text-gray-600">инкремент</span>
+                    <code className="font-mono text-green-600">MUL rd, rs1, rs2</code>
+                    <span className="text-gray-600">умножение: rd = rs1 * rs2</span>
                   </div>
                   <div className="flex justify-between items-center py-1">
-                    <code className="font-mono text-blue-600">DEC</code>
-                    <span className="text-gray-600">декремент</span>
+                    <code className="font-mono text-green-600">DIV rd, rs1, rs2</code>
+                    <span className="text-gray-600">деление: rd = rs1 / rs2</span>
                   </div>
                 </div>
               </div>
 
-              {/* Работа с памятью */}
+              {/* Логические операции */}
               <div className="bg-white rounded-lg border border-gray-200 p-4">
                 <h5 className="text-lg font-semibold text-gray-900 font-heading mb-3 flex items-center">
-                  <span className="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ПАМЯТЬ</span>
-                  Работа с памятью
+                  <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ЛОГИКА</span>
+                  Логические операции
                 </h5>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">LOAD</code>
-                    <span className="text-gray-600">загрузить из памяти</span>
+                    <code className="font-mono text-green-600">AND rd, rs1, rs2</code>
+                    <span className="text-gray-600">логическое И</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
+                    <code className="font-mono text-green-600">OR rd, rs1, rs2</code>
+                    <span className="text-gray-600">логическое ИЛИ</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
+                    <code className="font-mono text-green-600">XOR rd, rs1, rs2</code>
+                    <span className="text-gray-600">исключающее ИЛИ</span>
                   </div>
                   <div className="flex justify-between items-center py-1">
-                    <code className="font-mono text-blue-600">STORE</code>
-                    <span className="text-gray-600">сохранить в память</span>
+                    <code className="font-mono text-green-600">NOT rd, rs1</code>
+                    <span className="text-gray-600">логическое НЕ</span>
                   </div>
                 </div>
               </div>
@@ -462,25 +466,58 @@ HALT
               <div className="bg-white rounded-lg border border-gray-200 p-4">
                 <h5 className="text-lg font-semibold text-gray-900 font-heading mb-3 flex items-center">
                   <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">УПРАВЛЕНИЕ</span>
-                  Управление выполнением
+                  Переходы и сравнение
                 </h5>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">JMP &lt;label&gt;</code>
+                    <code className="font-mono text-green-600">CMP rs1, rs2</code>
+                    <span className="text-gray-600">сравнение (устанавливает флаги)</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
+                    <code className="font-mono text-green-600">JMP label</code>
                     <span className="text-gray-600">безусловный переход</span>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">JZ &lt;label&gt;</code>
-                    <span className="text-gray-600">переход если ноль</span>
+                    <code className="font-mono text-green-600">JZ label</code>
+                    <span className="text-gray-600">переход если Z=1</span>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-blue-600">JNZ &lt;label&gt;</code>
-                    <span className="text-gray-600">переход если не ноль</span>
+                    <code className="font-mono text-green-600">JNZ label</code>
+                    <span className="text-gray-600">переход если Z=0</span>
                   </div>
                   <div className="flex justify-between items-center py-1">
-                    <code className="font-mono text-blue-600">HALT</code>
+                    <code className="font-mono text-green-600">HALT</code>
                     <span className="text-gray-600">остановка выполнения</span>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Режимы адресации */}
+            <div className="bg-green-50 rounded-lg border border-green-200 p-6">
+              <h5 className="text-lg font-semibold text-green-900 font-heading mb-4">
+                🔧 Режимы адресации
+              </h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="bg-white rounded-lg p-3">
+                  <strong className="text-green-800">Непосредственная:</strong>
+                  <code className="block mt-1 font-mono text-green-600">LDI R0, 100</code>
+                  <span className="text-gray-600 text-xs">Значение указано напрямую</span>
+                </div>
+                <div className="bg-white rounded-lg p-3">
+                  <strong className="text-green-800">Прямая:</strong>
+                  <code className="block mt-1 font-mono text-green-600">LDR R0, [0x1000]</code>
+                  <span className="text-gray-600 text-xs">Адрес указан напрямую</span>
+                </div>
+                <div className="bg-white rounded-lg p-3">
+                  <strong className="text-green-800">Регистровая:</strong>
+                  <code className="block mt-1 font-mono text-green-600">ADD R0, R1, R2</code>
+                  <span className="text-gray-600 text-xs">Операнд в регистре</span>
+                </div>
+                <div className="bg-white rounded-lg p-3">
+                  <strong className="text-green-800">Косвенно-регистровая:</strong>
+                  <code className="block mt-1 font-mono text-green-600">LDRR R0, [R1]</code>
+                  <span className="text-gray-600 text-xs">Адрес в регистре</span>
                 </div>
               </div>
             </div>
@@ -494,55 +531,58 @@ HALT
                 <div>
                   <h6 className="font-medium text-gray-800 mb-2">Простое сложение:</h6>
                   <pre className="bg-gray-800 text-green-400 p-3 rounded text-xs font-mono overflow-x-auto">
-                    {`PUSH 5
-PUSH 3
-ADD
+                    {`LDI R0, 5
+LDI R1, 3
+ADD R0, R0, R1
 HALT`}
                   </pre>
+                  <p className="text-xs text-gray-600 mt-1">Результат: R0 = 0x0008 (8)</p>
                 </div>
                 <div>
                   <h6 className="font-medium text-gray-800 mb-2">Условный переход:</h6>
                   <pre className="bg-gray-800 text-green-400 p-3 rounded text-xs font-mono overflow-x-auto">
-                    {`PUSH 0
+                    {`LDI R0, 0
+CMP R0, 0
 JZ end
-PUSH 1
+LDI R1, 1
 end:
 HALT`}
                   </pre>
+                  <p className="text-xs text-gray-600 mt-1">Переход выполнится (R0 = 0)</p>
                 </div>
               </div>
             </div>
 
             {/* Архитектура процессора */}
-            <div className="bg-blue-50 rounded-lg border border-blue-200 p-6">
-              <h5 className="text-lg font-semibold text-blue-900 font-heading mb-4">
+            <div className="bg-green-50 rounded-lg border border-green-200 p-6">
+              <h5 className="text-lg font-semibold text-green-900 font-heading mb-4">
                 🏗️ Архитектура процессора
               </h5>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="text-center">
-                  <div className="bg-blue-100 rounded-lg p-3 mb-2">
-                    <div className="text-blue-800 font-medium">Стековая архитектура</div>
+                  <div className="bg-green-100 rounded-lg p-3 mb-2">
+                    <div className="text-green-800 font-medium">Двухадресная RISC</div>
                   </div>
-                  <p className="text-blue-700">Все операции выполняются над данными на стеке</p>
+                  <p className="text-green-700">Операции с двумя операндами, результат в регистре</p>
                 </div>
                 <div className="text-center">
-                  <div className="bg-blue-100 rounded-lg p-3 mb-2">
-                    <div className="text-blue-800 font-medium">Гарвардская архитектура</div>
+                  <div className="bg-green-100 rounded-lg p-3 mb-2">
+                    <div className="text-green-800 font-medium">Фон-Неймана</div>
                   </div>
-                  <p className="text-blue-700">Раздельная память для команд и данных</p>
+                  <p className="text-green-700">Единая память для команд и данных</p>
                 </div>
                 <div className="text-center">
-                  <div className="bg-blue-100 rounded-lg p-3 mb-2">
-                    <div className="text-blue-800 font-medium">RISC-подобная</div>
+                  <div className="bg-green-100 rounded-lg p-3 mb-2">
+                    <div className="text-green-800 font-medium">8 регистров</div>
                   </div>
-                  <p className="text-blue-700">Простой набор инструкций</p>
+                  <p className="text-green-700">R0-R7 (R0 - аккумулятор)</p>
                 </div>
               </div>
             </div>
 
             {/* Как работает выполнение программы */}
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-6">
-              <h5 className="text-xl font-bold text-purple-900 font-heading mb-4 flex items-center">
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-6">
+              <h5 className="text-xl font-bold text-green-900 font-heading mb-4 flex items-center">
                 <span className="mr-2">🎯</span>
                 Как работает выполнение программы
               </h5>
@@ -550,41 +590,41 @@ HALT`}
               <div className="space-y-4">
                 {/* Шаг 1 */}
                 <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h6 className="font-bold text-purple-800 mb-2">1️⃣ Компиляция кода</h6>
+                  <h6 className="font-bold text-green-800 mb-2">1️⃣ Загрузка задачи</h6>
                   <p className="text-sm text-gray-700 mb-2">
-                    Нажмите <strong>"Компилировать"</strong> — код преобразуется в машинные инструкции и загружается в процессор.
+                    Выберите задачу в панели "Задания" и нажмите <strong>"Загрузить данные для задачи"</strong> — данные загружаются в память, программа компилируется.
                   </p>
                   <div className="bg-green-50 border-l-4 border-green-500 p-2 text-sm">
-                    <strong className="text-green-800">✅ Ошибок нет</strong> — код готов к выполнению!
+                    <strong className="text-green-800">✅ Готово</strong> — программа и данные загружены!
                   </div>
                 </div>
 
                 {/* Шаг 2 */}
                 <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h6 className="font-bold text-purple-800 mb-2">2️⃣ Пошаговое выполнение</h6>
+                  <h6 className="font-bold text-green-800 mb-2">2️⃣ Пошаговое выполнение</h6>
                   <p className="text-sm text-gray-700 mb-2">
                     Нажимайте <strong>"Следующий шаг"</strong> для выполнения одной команды:
                   </p>
                   <ul className="text-sm text-gray-700 space-y-1 ml-4">
-                    <li>📊 <strong>Счётчик команд</strong> увеличивается на 1</li>
-                    <li>🔧 <strong>Текущая команда</strong> показывает, что выполняется</li>
-                    <li>📚 <strong>Стек</strong> обновляется с новыми данными</li>
-                    <li>🚩 <strong>Флаги</strong> меняются в зависимости от результата</li>
+                    <li>📊 <strong>Счётчик команд (PC)</strong> увеличивается на 1</li>
+                    <li>🔧 <strong>Регистр команд (IR)</strong> показывает текущую команду</li>
+                    <li>💾 <strong>Регистры R0-R7</strong> обновляются с новыми значениями (в hex-формате)</li>
+                    <li>🚩 <strong>Флаги (Z, C, V, N)</strong> меняются в зависимости от результата</li>
                   </ul>
                 </div>
 
                 {/* Шаг 3 */}
                 <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h6 className="font-bold text-purple-800 mb-2">3️⃣ Визуализация в блоке "Память"</h6>
+                  <h6 className="font-bold text-green-800 mb-2">3️⃣ Визуализация в блоке "Память"</h6>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                    <div className="bg-blue-50 p-3 rounded">
-                      <strong className="text-blue-800">Память по времени:</strong>
+                    <div className="bg-green-50 p-3 rounded">
+                      <strong className="text-green-800">История выполнения:</strong>
                       <p className="text-gray-700 mt-1">
-                        История каждого шага выполнения с состоянием стека и счётчика команд
+                        История каждого шага с состоянием регистров до и после выполнения команды
                       </p>
                     </div>
-                    <div className="bg-purple-50 p-3 rounded">
-                      <strong className="text-purple-800">Состояние памяти:</strong>
+                    <div className="bg-green-50 p-3 rounded">
+                      <strong className="text-green-800">Состояние памяти:</strong>
                       <p className="text-gray-700 mt-1">
                         Текущие данные в памяти с адресами и значениями ячеек
                       </p>
@@ -594,19 +634,19 @@ HALT`}
 
                 {/* Пример */}
                 <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200">
-                  <h6 className="font-bold text-orange-800 mb-2">📝 Пример: PUSH 15, PUSH 3, ADD</h6>
+                  <h6 className="font-bold text-orange-800 mb-2">📝 Пример: LDI R0, 0x000A; LDI R1, 0x0003; ADD R0, R0, R1</h6>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center space-x-2">
-                      <span className="bg-blue-500 text-white px-2 py-1 rounded font-mono text-xs">Шаг 1</span>
-                      <span className="text-gray-700">PUSH 15 → Стек: <code className="text-green-600 font-bold">[15]</code></span>
+                      <span className="bg-green-500 text-white px-2 py-1 rounded font-mono text-xs">Шаг 1</span>
+                      <span className="text-gray-700">LDI R0, 0x000A → R0 = <code className="text-green-600 font-bold">0x000A</code></span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className="bg-blue-500 text-white px-2 py-1 rounded font-mono text-xs">Шаг 2</span>
-                      <span className="text-gray-700">PUSH 3 → Стек: <code className="text-green-600 font-bold">[15, 3]</code></span>
+                      <span className="bg-green-500 text-white px-2 py-1 rounded font-mono text-xs">Шаг 2</span>
+                      <span className="text-gray-700">LDI R1, 0x0003 → R1 = <code className="text-green-600 font-bold">0x0003</code></span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className="bg-blue-500 text-white px-2 py-1 rounded font-mono text-xs">Шаг 3</span>
-                      <span className="text-gray-700">ADD → Стек: <code className="text-green-600 font-bold">[18]</code> (15+3)</span>
+                      <span className="bg-green-500 text-white px-2 py-1 rounded font-mono text-xs">Шаг 3</span>
+                      <span className="text-gray-700">ADD R0, R0, R1 → R0 = <code className="text-green-600 font-bold">0x000D</code> (10+3)</span>
                     </div>
                   </div>
                 </div>

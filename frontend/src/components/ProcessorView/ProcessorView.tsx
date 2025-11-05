@@ -13,9 +13,12 @@ export const ProcessorView: React.FC = () => {
   const formatValue = (value: number, isHex: boolean = false) => {
     if (isHex) {
       if (value < 0) {
-        return value.toString();
+        // Для отрицательных чисел используем дополнение до двух
+        // Преобразуем в беззнаковое 16-битное число
+        const unsigned = (value >>> 0) & 0xFFFF;
+        return `0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`;
       }
-      return `0x${value.toString(16).toUpperCase()}`;
+      return `0x${value.toString(16).toUpperCase().padStart(4, '0')}`;
     }
     return value.toString();
   };
@@ -90,7 +93,7 @@ export const ProcessorView: React.FC = () => {
                     R{index} {index === 0 && <span className="text-blue-600">(аккумулятор)</span>}
                   </div>
                   <div className="text-lg font-mono font-bold text-primary-600">
-                    {formatValue(value, current_task === 2)}
+                    {formatValue(value, true)}
                   </div>
                 </div>
               ))}

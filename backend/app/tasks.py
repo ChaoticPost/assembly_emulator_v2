@@ -199,12 +199,12 @@ HALT
             # Загружаем массив в память начиная с 0x1000
             # [0x1000] = размер массива
             processor.memory.ram[0x1000] = size
-            print(f"Stored size={size} at address 0x1000")
+            print(f"Stored size=0x{size:04X} at address 0x1000")
             
             # [0x1001..0x1000+size] = элементы массива
             for i, value in enumerate(elements):
                 processor.memory.ram[0x1000 + i + 1] = value
-                print(f"Stored element[{i}] = {value} at address 0x{0x1000 + i + 1:04X}")
+                print(f"Stored element[{i}] = 0x{value:04X} at address 0x{0x1000 + i + 1:04X}")
             
         elif task_id == 2:  # Свертка массивов
             # Формат: [size_a, a1..aN, size_b, b1..bM]
@@ -218,16 +218,19 @@ HALT
             # Загружаем массив A в память (0x1000-0x1009)
             for i, v in enumerate(a_vals):
                 processor.memory.ram[0x1000 + i] = v
-                print(f"Stored A[{i}] = {v} at address 0x{0x1000 + i:04X}")
+                print(f"Stored A[{i}] = 0x{v:04X} at address 0x{0x1000 + i:04X}")
 
             # Загружаем массив B в память (0x1010-0x1019)
             for i, v in enumerate(b_vals):
                 processor.memory.ram[0x1010 + i] = v
-                print(f"Stored B[{i}] = {v} at address 0x{0x1010 + i:04X}")
+                print(f"Stored B[{i}] = 0x{v:04X} at address 0x{0x1010 + i:04X}")
             
-            print(f"Memory after setup: A={processor.memory.ram[0x1000:0x100A]}, B={processor.memory.ram[0x1010:0x101A]}")
+            a_mem = [f"0x{v:04X}" for v in processor.memory.ram[0x1000:0x100A]]
+            b_mem = [f"0x{v:04X}" for v in processor.memory.ram[0x1010:0x101A]]
+            print(f"Memory after setup: A={a_mem}, B={b_mem}")
         
-        print(f"Memory after setup: {processor.memory.ram[0x1000:0x1020]}")
+        mem_hex = [f"0x{v:04X}" for v in processor.memory.ram[0x1000:0x1020]]
+        print(f"Memory after setup: {mem_hex}")
     
     def verify_task_result(self, processor: RISCProcessor, task_id: int) -> Dict[str, Any]:
         """Проверить результат выполнения задачи"""

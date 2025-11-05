@@ -52,7 +52,7 @@ class RISCProcessor:
             'HALT': 0xFF,   # HALT            - остановка
             'NOP':  0x00,   # NOP             - нет операции
         }
-    
+        
     def reset(self):
         """Сброс процессора в начальное состояние"""
         self.processor = ProcessorState()
@@ -103,7 +103,7 @@ class RISCProcessor:
             # Прямая адресация [address]
             else:
                 addr = self._parse_number(inner)
-                print(f"DEBUG _parse_operand: operand_str='{operand_str}', inner='{inner}', addr={addr}, mode=DIRECT")
+                print(f"DEBUG _parse_operand: operand_str='{operand_str}', inner='{inner}', addr=0x{addr:04X}, mode=DIRECT")
                 return addr, AddressingMode.DIRECT
         
         # Регистровая адресация (R0-R7)
@@ -190,9 +190,9 @@ class RISCProcessor:
         elif addressing_mode == AddressingMode.DIRECT:
             if 0 <= operand < len(self.memory.ram):
                 value = self.memory.ram[operand]
-                print(f"DEBUG _get_operand_value DIRECT: operand={operand}, value={value}, memory[{operand}]={value}")
+                print(f"DEBUG _get_operand_value DIRECT: operand=0x{operand:04X}, value=0x{value:04X}, memory[0x{operand:04X}]=0x{value:04X}")
                 return value
-            print(f"DEBUG _get_operand_value DIRECT: operand={operand} OUT_OF_BOUNDS (memory_size={len(self.memory.ram)})")
+            print(f"DEBUG _get_operand_value DIRECT: operand=0x{operand:04X} OUT_OF_BOUNDS (memory_size=0x{len(self.memory.ram):04X})")
             return 0
         elif addressing_mode == AddressingMode.INDIRECT_REGISTER:
             addr = self.processor.registers[operand]
@@ -221,7 +221,7 @@ class RISCProcessor:
         # Проверка переполнения для 16-битных чисел
         if result > 32767 or result < -32768:
             self.processor.flags["overflow"] = True
-        else:
+            else:
             self.processor.flags["overflow"] = False
         
         # Упрощенная логика для флага переноса
@@ -229,7 +229,7 @@ class RISCProcessor:
             self.processor.flags["carry"] = True
         elif operation == "sub" and result > 0:
             self.processor.flags["carry"] = True
-        else:
+            else:
             self.processor.flags["carry"] = False
     
     def execute_instruction(self, instruction: str, operands: List[str] = None):
@@ -254,7 +254,7 @@ class RISCProcessor:
                 self.processor.registers[rd] = result
             else:
                 raise Exception(f"ADD requires 3 operands: ADD rd, rs1, rs2")
-            
+        
         # Формат: SUB rd, rs1, rs2 - rd = rs1 - rs2
         elif instruction == "SUB":
             if len(operands) >= 3:
@@ -268,7 +268,7 @@ class RISCProcessor:
                 self.processor.registers[rd] = result
             else:
                 raise Exception(f"SUB requires 3 operands: SUB rd, rs1, rs2")
-            
+        
         # Формат: MUL rd, rs1, rs2 - rd = rs1 * rs2
         elif instruction == "MUL":
             if len(operands) >= 3:
@@ -282,7 +282,7 @@ class RISCProcessor:
                 self.processor.registers[rd] = result
             else:
                 raise Exception(f"MUL requires 3 operands: MUL rd, rs1, rs2")
-            
+        
         # Формат: DIV rd, rs1, rs2 - rd = rs1 / rs2
         elif instruction == "DIV":
             if len(operands) >= 3:
@@ -378,7 +378,9 @@ class RISCProcessor:
                 rd, _ = self._parse_operand(operands[0])
                 addr, mode1 = self._parse_operand(operands[1])
                 val1 = self._get_operand_value(addr, mode1)
-                print(f"DEBUG LDR: operands={operands}, rd={rd}, addr={addr}, mode1={mode1}, val1={val1}, memory[{addr}]={self.memory.ram[addr] if 0 <= addr < len(self.memory.ram) else 'OUT_OF_BOUNDS'}")
+                mem_val = self.memory.ram[addr] if 0 <= addr < len(self.memory.ram) else None
+                mem_str = f"0x{mem_val:04X}" if mem_val is not None else 'OUT_OF_BOUNDS'
+                print(f"DEBUG LDR: operands={operands}, rd=R{rd}, addr=0x{addr:04X}, mode1={mode1}, val1=0x{val1:04X}, memory[0x{addr:04X}]={mem_str}")
                 self.processor.registers[rd] = val1
             else:
                 raise Exception(f"LDR requires 2 operands: LDR rd, [address]")
@@ -424,7 +426,7 @@ class RISCProcessor:
                 self.update_flags(result)
             else:
                 raise Exception(f"CMP requires 2 operands: CMP rs1, rs2")
-            
+        
         # Формат: JMP address - безусловный переход
         elif instruction == "JMP":
             if len(operands) >= 1:
@@ -436,7 +438,7 @@ class RISCProcessor:
             else:
                 raise Exception(f"JMP requires 1 operand: JMP address")
             return  # Не увеличиваем PC
-            
+        
         # Формат: JZ address - переход если Z=1
         elif instruction == "JZ":
             if len(operands) >= 1:
@@ -449,7 +451,7 @@ class RISCProcessor:
                     return
             else:
                 raise Exception(f"JZ requires 1 operand: JZ address")
-                
+        
         # Формат: JNZ address - переход если Z=0
         elif instruction == "JNZ":
             if len(operands) >= 1:
@@ -488,16 +490,16 @@ class RISCProcessor:
                     return
             else:
                 raise Exception(f"JNC requires 1 operand: JNC address")
-                
+        
         elif instruction == "HALT":
             self.processor.is_halted = True
             return
-            
+        
         elif instruction == "NOP":
             pass
         
         # Увеличиваем счетчик команд, если не было перехода
-        self.processor.program_counter += 1
+            self.processor.program_counter += 1
     
     def step(self) -> bool:
         """Выполнить один шаг программы"""

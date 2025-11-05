@@ -113,12 +113,13 @@ class RISCAssembler:
             line = parts[1].strip()
         
         # Парсим инструкцию и операнды
-        parts = line.split()
+        # Разделяем команду и операнды, учитывая запятые
+        parts = line.replace(',', ' ').split()
         if not parts:
             return label, None, None
         
         instruction = parts[0].upper()
-        operands = parts[1:] if len(parts) > 1 else []
+        operands = [p.strip() for p in parts[1:] if p.strip()] if len(parts) > 1 else []
         
         return label, instruction, operands
     
@@ -171,25 +172,30 @@ class RISCAssembler:
         machine_code = []
         labels = {}
         
-        # Первый проход: сбор меток
-        for i, line in enumerate(lines):
+        # Первый проход: сбор меток и компиляция команд
+        code_index = 0  # Индекс в скомпилированном коде
+        for line in lines:
             label, instruction, operands = self.parse_line(line, resolve_labels=False)
             if label:
-                labels[label] = i
+                # Метка указывает на индекс следующей команды в скомпилированном коде
+                # Если на этой же строке есть команда, метка указывает на неё
+                labels[label] = code_index
             if instruction:
                 machine_code.append(self._format_instruction(instruction, operands or []))
+                code_index += 1
         
         # Второй проход: замена меток на адреса
         resolved_code = []
         for i, instruction_line in enumerate(machine_code):
-            parts = instruction_line.split()
+            # Парсим команду с учетом запятых
+            parts = instruction_line.replace(',', ' ').split()
             if len(parts) >= 2:
                 instruction = parts[0]
-                operands = parts[1:]
+                operands_parts = parts[1:]
                 
                 # Заменяем метки на адреса
                 resolved_operands = []
-                for operand in operands:
+                for operand in operands_parts:
                     if operand in labels:
                         resolved_operands.append(str(labels[operand]))
                     else:

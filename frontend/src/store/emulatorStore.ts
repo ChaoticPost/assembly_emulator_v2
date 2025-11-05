@@ -45,6 +45,7 @@ export const useEmulatorStore = create<{
     setState: (newState: EmulatorState) => void;
     setLoading: (loading: boolean) => void;
     setError: (error: string | null) => void;
+    loadTask1Data: () => Promise<void>;
     loadTask2Data: () => Promise<void>;
 }>((set, get) => ({
     state: initialState,
@@ -81,6 +82,29 @@ export const useEmulatorStore = create<{
     setState: (newState) => set({ state: newState }),
     setLoading: (loading) => set({ loading }),
     setError: (error) => set({ error }),
+
+    loadTask1Data: async () => {
+        try {
+            set({ loading: true, error: null });
+            console.log('Загружаем данные для задачи 1');
+            const result = await apiService.loadTask(1);
+            if (result.success) {
+                set({
+                    state: result.state,
+                    current_task: 1,
+                    loading: false
+                });
+                console.log('Данные задачи 1 загружены:', result.state);
+            } else {
+                set({ error: 'Ошибка загрузки данных задачи 1', loading: false });
+            }
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Ошибка загрузки данных задачи 1',
+                loading: false
+            });
+        }
+    },
 
     loadTask2Data: async () => {
         try {

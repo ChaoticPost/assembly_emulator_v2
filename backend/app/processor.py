@@ -7,7 +7,7 @@ from .models import ProcessorState, MemoryState, AddressingMode, InstructionFiel
 class RISCProcessor:
     """Эмулятор двухадресного RISC процессора"""
     
-    def __init__(self, memory_size: int = 4096):
+    def __init__(self, memory_size: int = 8192):
         self.memory_size = memory_size
         self.processor = ProcessorState()
         self.memory = MemoryState()
@@ -94,20 +94,21 @@ class RISCProcessor:
         if operand_str.startswith('0x'):
             return self._parse_number(operand_str), AddressingMode.IMMEDIATE
         
+        # Прямая и косвенно-регистровая адресация [address] или [R0-R7]
+        if operand_str.startswith('[') and operand_str.endswith(']'):
+            inner = operand_str[1:-1].strip()
+            # Косвенно-регистровая адресация [R0-R7]
+            if inner.upper().startswith('R') and len(inner) == 2:
+                return self._parse_register(inner), AddressingMode.INDIRECT_REGISTER
+            # Прямая адресация [address]
+            else:
+                addr = self._parse_number(inner)
+                print(f"DEBUG _parse_operand: operand_str='{operand_str}', inner='{inner}', addr={addr}, mode=DIRECT")
+                return addr, AddressingMode.DIRECT
+        
         # Регистровая адресация (R0-R7)
         if operand_str.upper().startswith('R') and len(operand_str) == 2:
             return self._parse_register(operand_str), AddressingMode.REGISTER
-        
-        # Прямая адресация [address]
-        if operand_str.startswith('[') and operand_str.endswith(']'):
-            address_str = operand_str[1:-1]
-            return self._parse_number(address_str), AddressingMode.DIRECT
-        
-        # Косвенно-регистровая адресация [R0-R7]
-        if operand_str.startswith('[') and operand_str.endswith(']'):
-            inner = operand_str[1:-1].strip()
-            if inner.upper().startswith('R') and len(inner) == 2:
-                return self._parse_register(inner), AddressingMode.INDIRECT_REGISTER
         
         # Метка (для переходов)
         return operand_str, AddressingMode.IMMEDIATE
@@ -187,12 +188,15 @@ class RISCProcessor:
         elif addressing_mode == AddressingMode.REGISTER:
             return self.processor.registers[operand]
         elif addressing_mode == AddressingMode.DIRECT:
-            if 0 <= operand < self.memory_size:
-                return self.memory.ram[operand]
+            if 0 <= operand < len(self.memory.ram):
+                value = self.memory.ram[operand]
+                print(f"DEBUG _get_operand_value DIRECT: operand={operand}, value={value}, memory[{operand}]={value}")
+                return value
+            print(f"DEBUG _get_operand_value DIRECT: operand={operand} OUT_OF_BOUNDS (memory_size={len(self.memory.ram)})")
             return 0
         elif addressing_mode == AddressingMode.INDIRECT_REGISTER:
             addr = self.processor.registers[operand]
-            if 0 <= addr < self.memory_size:
+            if 0 <= addr < len(self.memory.ram):
                 return self.memory.ram[addr]
             return 0
         return 0
@@ -202,11 +206,11 @@ class RISCProcessor:
         if addressing_mode == AddressingMode.REGISTER:
             self.processor.registers[operand] = value
         elif addressing_mode == AddressingMode.DIRECT:
-            if 0 <= operand < self.memory_size:
+            if 0 <= operand < len(self.memory.ram):
                 self.memory.ram[operand] = value
         elif addressing_mode == AddressingMode.INDIRECT_REGISTER:
             addr = self.processor.registers[operand]
-            if 0 <= addr < self.memory_size:
+            if 0 <= addr < len(self.memory.ram):
                 self.memory.ram[addr] = value
     
     def update_flags(self, result: int, operation: str = ""):
@@ -236,144 +240,254 @@ class RISCProcessor:
         if instruction not in self.instructions:
             raise Exception(f"Unknown instruction: {instruction}")
         
-        opcode = self.instructions[instruction]
-        
-        # Парсинг операндов
-        if len(operands) >= 1:
-            op1, mode1 = self._parse_operand(operands[0])
-        else:
-            op1, mode1 = 0, AddressingMode.REGISTER
-            
-        if len(operands) >= 2:
-            op2, mode2 = self._parse_operand(operands[1])
-        else:
-            op2, mode2 = 0, AddressingMode.REGISTER
-        
         # Выполнение команды
+        # Формат: ADD rd, rs1, rs2 - rd = rs1 + rs2
         if instruction == "ADD":
-            val1 = self._get_operand_value(op1, mode1)
-            val2 = self._get_operand_value(op2, mode2)
-            result = val1 + val2
-            self.update_flags(result, "add")
-            self.processor.registers[0] = result  # R0 - аккумулятор
-            
-        elif instruction == "SUB":
-            val1 = self._get_operand_value(op1, mode1)
-            val2 = self._get_operand_value(op2, mode2)
-            result = val1 - val2
-            self.update_flags(result, "sub")
-            self.processor.registers[0] = result
-            
-        elif instruction == "MUL":
-            val1 = self._get_operand_value(op1, mode1)
-            val2 = self._get_operand_value(op2, mode2)
-            result = val1 * val2
-            self.update_flags(result)
-            self.processor.registers[0] = result
-            
-        elif instruction == "DIV":
-            val1 = self._get_operand_value(op1, mode1)
-            val2 = self._get_operand_value(op2, mode2)
-            if val2 == 0:
-                raise Exception("Division by zero")
-            result = val1 // val2
-            self.update_flags(result)
-            self.processor.registers[0] = result
-            
-        elif instruction == "AND":
-            val1 = self._get_operand_value(op1, mode1)
-            val2 = self._get_operand_value(op2, mode2)
-            result = val1 & val2
-            self.update_flags(result)
-            self.processor.registers[0] = result
-            
-        elif instruction == "OR":
-            val1 = self._get_operand_value(op1, mode1)
-            val2 = self._get_operand_value(op2, mode2)
-            result = val1 | val2
-            self.update_flags(result)
-            self.processor.registers[0] = result
-            
-        elif instruction == "XOR":
-            val1 = self._get_operand_value(op1, mode1)
-            val2 = self._get_operand_value(op2, mode2)
-            result = val1 ^ val2
-            self.update_flags(result)
-            self.processor.registers[0] = result
-            
-        elif instruction == "NOT":
-            val1 = self._get_operand_value(op1, mode1)
-            result = ~val1
-            self.update_flags(result)
-            self.processor.registers[0] = result
-            
-        elif instruction == "MOV":
-            val1 = self._get_operand_value(op1, mode1)
-            self.processor.registers[0] = val1  # Всегда в R0
-            
-        elif instruction == "LDI":
-            self.processor.registers[0] = op1  # Непосредственное значение
-            
-        elif instruction == "LDR":
-            val1 = self._get_operand_value(op1, mode1)
-            self.processor.registers[0] = val1
-            
-        elif instruction == "LDRR":
-            val1 = self._get_operand_value(op1, mode1)
-            self.processor.registers[0] = val1
-            
-        elif instruction == "STR":
-            val1 = self.processor.registers[0]  # Из R0
-            self._set_operand_value(op1, val1, mode1)
-            
-        elif instruction == "STRR":
-            val1 = self.processor.registers[0]  # Из R0
-            self._set_operand_value(op1, val1, mode1)
-            
-        elif instruction == "CMP":
-            val1 = self._get_operand_value(op1, mode1)
-            val2 = self._get_operand_value(op2, mode2)
-            result = val1 - val2
-            self.update_flags(result)
-            
-        elif instruction == "JMP":
-            if mode1 == AddressingMode.IMMEDIATE:
-                self.processor.program_counter = op1
+            if len(operands) >= 3:
+                rd, _ = self._parse_operand(operands[0])
+                rs1, mode1 = self._parse_operand(operands[1])
+                rs2, mode2 = self._parse_operand(operands[2])
+                val1 = self._get_operand_value(rs1, mode1)
+                val2 = self._get_operand_value(rs2, mode2)
+                result = val1 + val2
+                self.update_flags(result, "add")
+                self.processor.registers[rd] = result
             else:
-                self.processor.program_counter = self._get_operand_value(op1, mode1)
+                raise Exception(f"ADD requires 3 operands: ADD rd, rs1, rs2")
+            
+        # Формат: SUB rd, rs1, rs2 - rd = rs1 - rs2
+        elif instruction == "SUB":
+            if len(operands) >= 3:
+                rd, _ = self._parse_operand(operands[0])
+                rs1, mode1 = self._parse_operand(operands[1])
+                rs2, mode2 = self._parse_operand(operands[2])
+                val1 = self._get_operand_value(rs1, mode1)
+                val2 = self._get_operand_value(rs2, mode2)
+                result = val1 - val2
+                self.update_flags(result, "sub")
+                self.processor.registers[rd] = result
+            else:
+                raise Exception(f"SUB requires 3 operands: SUB rd, rs1, rs2")
+            
+        # Формат: MUL rd, rs1, rs2 - rd = rs1 * rs2
+        elif instruction == "MUL":
+            if len(operands) >= 3:
+                rd, _ = self._parse_operand(operands[0])
+                rs1, mode1 = self._parse_operand(operands[1])
+                rs2, mode2 = self._parse_operand(operands[2])
+                val1 = self._get_operand_value(rs1, mode1)
+                val2 = self._get_operand_value(rs2, mode2)
+                result = val1 * val2
+                self.update_flags(result)
+                self.processor.registers[rd] = result
+            else:
+                raise Exception(f"MUL requires 3 operands: MUL rd, rs1, rs2")
+            
+        # Формат: DIV rd, rs1, rs2 - rd = rs1 / rs2
+        elif instruction == "DIV":
+            if len(operands) >= 3:
+                rd, _ = self._parse_operand(operands[0])
+                rs1, mode1 = self._parse_operand(operands[1])
+                rs2, mode2 = self._parse_operand(operands[2])
+                val1 = self._get_operand_value(rs1, mode1)
+                val2 = self._get_operand_value(rs2, mode2)
+                if val2 == 0:
+                    raise Exception("Division by zero")
+                result = val1 // val2
+                self.update_flags(result)
+                self.processor.registers[rd] = result
+            else:
+                raise Exception(f"DIV requires 3 operands: DIV rd, rs1, rs2")
+            
+        # Формат: AND rd, rs1, rs2 - rd = rs1 & rs2
+        elif instruction == "AND":
+            if len(operands) >= 3:
+                rd, _ = self._parse_operand(operands[0])
+                rs1, mode1 = self._parse_operand(operands[1])
+                rs2, mode2 = self._parse_operand(operands[2])
+                val1 = self._get_operand_value(rs1, mode1)
+                val2 = self._get_operand_value(rs2, mode2)
+                result = val1 & val2
+                self.update_flags(result)
+                self.processor.registers[rd] = result
+            else:
+                raise Exception(f"AND requires 3 operands: AND rd, rs1, rs2")
+            
+        # Формат: OR rd, rs1, rs2 - rd = rs1 | rs2
+        elif instruction == "OR":
+            if len(operands) >= 3:
+                rd, _ = self._parse_operand(operands[0])
+                rs1, mode1 = self._parse_operand(operands[1])
+                rs2, mode2 = self._parse_operand(operands[2])
+                val1 = self._get_operand_value(rs1, mode1)
+                val2 = self._get_operand_value(rs2, mode2)
+                result = val1 | val2
+                self.update_flags(result)
+                self.processor.registers[rd] = result
+            else:
+                raise Exception(f"OR requires 3 operands: OR rd, rs1, rs2")
+            
+        # Формат: XOR rd, rs1, rs2 - rd = rs1 ^ rs2
+        elif instruction == "XOR":
+            if len(operands) >= 3:
+                rd, _ = self._parse_operand(operands[0])
+                rs1, mode1 = self._parse_operand(operands[1])
+                rs2, mode2 = self._parse_operand(operands[2])
+                val1 = self._get_operand_value(rs1, mode1)
+                val2 = self._get_operand_value(rs2, mode2)
+                result = val1 ^ val2
+                self.update_flags(result)
+                self.processor.registers[rd] = result
+            else:
+                raise Exception(f"XOR requires 3 operands: XOR rd, rs1, rs2")
+            
+        # Формат: NOT rd, rs1 - rd = ~rs1
+        elif instruction == "NOT":
+            if len(operands) >= 2:
+                rd, _ = self._parse_operand(operands[0])
+                rs1, mode1 = self._parse_operand(operands[1])
+                val1 = self._get_operand_value(rs1, mode1)
+                result = ~val1
+                self.update_flags(result)
+                self.processor.registers[rd] = result
+            else:
+                raise Exception(f"NOT requires 2 operands: NOT rd, rs1")
+            
+        # Формат: MOV rd, rs1 - rd = rs1
+        elif instruction == "MOV":
+            if len(operands) >= 2:
+                rd, _ = self._parse_operand(operands[0])
+                rs1, mode1 = self._parse_operand(operands[1])
+                val1 = self._get_operand_value(rs1, mode1)
+                self.processor.registers[rd] = val1
+            else:
+                raise Exception(f"MOV requires 2 operands: MOV rd, rs1")
+            
+        # Формат: LDI rd, imm - rd = immediate
+        elif instruction == "LDI":
+            if len(operands) >= 2:
+                rd, _ = self._parse_operand(operands[0])
+                imm, _ = self._parse_operand(operands[1])
+                self.processor.registers[rd] = imm
+            else:
+                raise Exception(f"LDI requires 2 operands: LDI rd, imm")
+            
+        # Формат: LDR rd, [address] - rd = [address]
+        elif instruction == "LDR":
+            if len(operands) >= 2:
+                rd, _ = self._parse_operand(operands[0])
+                addr, mode1 = self._parse_operand(operands[1])
+                val1 = self._get_operand_value(addr, mode1)
+                print(f"DEBUG LDR: operands={operands}, rd={rd}, addr={addr}, mode1={mode1}, val1={val1}, memory[{addr}]={self.memory.ram[addr] if 0 <= addr < len(self.memory.ram) else 'OUT_OF_BOUNDS'}")
+                self.processor.registers[rd] = val1
+            else:
+                raise Exception(f"LDR requires 2 operands: LDR rd, [address]")
+            
+        # Формат: LDRR rd, [rs1] - rd = [rs1]
+        elif instruction == "LDRR":
+            if len(operands) >= 2:
+                rd, _ = self._parse_operand(operands[0])
+                rs1, mode1 = self._parse_operand(operands[1])
+                val1 = self._get_operand_value(rs1, mode1)
+                self.processor.registers[rd] = val1
+            else:
+                raise Exception(f"LDRR requires 2 operands: LDRR rd, [rs1]")
+            
+        # Формат: STR rs1, [address] - [address] = rs1
+        elif instruction == "STR":
+            if len(operands) >= 2:
+                rs1, mode_rs1 = self._parse_operand(operands[0])
+                addr, mode_addr = self._parse_operand(operands[1])
+                val1 = self._get_operand_value(rs1, mode_rs1)
+                self._set_operand_value(addr, val1, mode_addr)
+            else:
+                raise Exception(f"STR requires 2 operands: STR rs1, [address]")
+            
+        # Формат: STRR rs1, [rd] - [rd] = rs1
+        elif instruction == "STRR":
+            if len(operands) >= 2:
+                rs1, mode_rs1 = self._parse_operand(operands[0])
+                rd, mode_rd = self._parse_operand(operands[1])
+                val1 = self._get_operand_value(rs1, mode_rs1)
+                self._set_operand_value(rd, val1, mode_rd)
+            else:
+                raise Exception(f"STRR requires 2 operands: STRR rs1, [rd]")
+            
+        # Формат: CMP rs1, rs2 - сравнить rs1 и rs2 (устанавливает флаги)
+        elif instruction == "CMP":
+            if len(operands) >= 2:
+                rs1, mode1 = self._parse_operand(operands[0])
+                rs2, mode2 = self._parse_operand(operands[1])
+                val1 = self._get_operand_value(rs1, mode1)
+                val2 = self._get_operand_value(rs2, mode2)
+                result = val1 - val2
+                self.update_flags(result)
+            else:
+                raise Exception(f"CMP requires 2 operands: CMP rs1, rs2")
+            
+        # Формат: JMP address - безусловный переход
+        elif instruction == "JMP":
+            if len(operands) >= 1:
+                addr, mode1 = self._parse_operand(operands[0])
+                if mode1 == AddressingMode.IMMEDIATE:
+                    self.processor.program_counter = addr
+                else:
+                    self.processor.program_counter = self._get_operand_value(addr, mode1)
+            else:
+                raise Exception(f"JMP requires 1 operand: JMP address")
             return  # Не увеличиваем PC
             
+        # Формат: JZ address - переход если Z=1
         elif instruction == "JZ":
-            if self.processor.flags["zero"]:
-                if mode1 == AddressingMode.IMMEDIATE:
-                    self.processor.program_counter = op1
-                else:
-                    self.processor.program_counter = self._get_operand_value(op1, mode1)
-                return
+            if len(operands) >= 1:
+                if self.processor.flags["zero"]:
+                    addr, mode1 = self._parse_operand(operands[0])
+                    if mode1 == AddressingMode.IMMEDIATE:
+                        self.processor.program_counter = addr
+                    else:
+                        self.processor.program_counter = self._get_operand_value(addr, mode1)
+                    return
+            else:
+                raise Exception(f"JZ requires 1 operand: JZ address")
                 
+        # Формат: JNZ address - переход если Z=0
         elif instruction == "JNZ":
-            if not self.processor.flags["zero"]:
-                if mode1 == AddressingMode.IMMEDIATE:
-                    self.processor.program_counter = op1
-                else:
-                    self.processor.program_counter = self._get_operand_value(op1, mode1)
-                return
+            if len(operands) >= 1:
+                if not self.processor.flags["zero"]:
+                    addr, mode1 = self._parse_operand(operands[0])
+                    if mode1 == AddressingMode.IMMEDIATE:
+                        self.processor.program_counter = addr
+                    else:
+                        self.processor.program_counter = self._get_operand_value(addr, mode1)
+                    return
+            else:
+                raise Exception(f"JNZ requires 1 operand: JNZ address")
                 
+        # Формат: JC address - переход если C=1
         elif instruction == "JC":
-            if self.processor.flags["carry"]:
-                if mode1 == AddressingMode.IMMEDIATE:
-                    self.processor.program_counter = op1
-                else:
-                    self.processor.program_counter = self._get_operand_value(op1, mode1)
-                return
+            if len(operands) >= 1:
+                if self.processor.flags["carry"]:
+                    addr, mode1 = self._parse_operand(operands[0])
+                    if mode1 == AddressingMode.IMMEDIATE:
+                        self.processor.program_counter = addr
+                    else:
+                        self.processor.program_counter = self._get_operand_value(addr, mode1)
+                    return
+            else:
+                raise Exception(f"JC requires 1 operand: JC address")
                 
+        # Формат: JNC address - переход если C=0
         elif instruction == "JNC":
-            if not self.processor.flags["carry"]:
-                if mode1 == AddressingMode.IMMEDIATE:
-                    self.processor.program_counter = op1
-                else:
-                    self.processor.program_counter = self._get_operand_value(op1, mode1)
-                return
+            if len(operands) >= 1:
+                if not self.processor.flags["carry"]:
+                    addr, mode1 = self._parse_operand(operands[0])
+                    if mode1 == AddressingMode.IMMEDIATE:
+                        self.processor.program_counter = addr
+                    else:
+                        self.processor.program_counter = self._get_operand_value(addr, mode1)
+                    return
+            else:
+                raise Exception(f"JNC requires 1 operand: JNC address")
                 
         elif instruction == "HALT":
             self.processor.is_halted = True
@@ -396,13 +510,18 @@ class RISCProcessor:
         
         # Получаем текущую команду
         instruction_line = self.compiled_code[self.processor.program_counter]
-        parts = instruction_line.split()
+        # Парсинг команды с учетом запятых
+        parts = instruction_line.replace(',', ' ').split()
         instruction = parts[0]
-        operands = parts[1:] if len(parts) > 1 else []
+        operands = [p.strip() for p in parts[1:] if p.strip()] if len(parts) > 1 else []
         
         # Сохраняем команду в регистр команд
         self.processor.current_command = instruction_line
         self.processor.instruction_register_asm = instruction_line
+        # Здесь можно добавить кодирование команды в машинный код для IR
+        # Для простоты пока используем PC как код команды
+        if instruction in self.instructions:
+            self.processor.instruction_register = self.instructions[instruction]
         
         # Выполняем инструкцию
         try:

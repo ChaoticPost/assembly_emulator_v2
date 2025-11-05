@@ -4,7 +4,6 @@ import { ProcessorView } from './components/ProcessorView/ProcessorView';
 import { MemoryView } from './components/MemoryView/MemoryView';
 import { ControlPanel } from './components/ControlPanel/ControlPanel';
 import { CommandEditor } from './components/CommandEditor/CommandEditor';
-import { TechStack } from './components/TechStack/TechStack';
 import { ErrorDisplay } from './components/ErrorDisplay/ErrorDisplay';
 import { useEmulatorStore } from './store/emulatorStore';
 import './App.css';
@@ -30,9 +29,6 @@ const App: React.FC = () => {
           <div className="flex flex-col gap-6">
             <div className="fade-in-up">
               <TaskPanel />
-            </div>
-            <div className="fade-in-up" style={{ animationDelay: '0.1s' }}>
-              <TechStack />
             </div>
           </div>
 

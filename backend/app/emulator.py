@@ -10,7 +10,7 @@ from .models import EmulatorState, ProcessorState, MemoryState
 class RISCEmulator:
     """Эмулятор двухадресного RISC процессора"""
     
-    def __init__(self, memory_size: int = 4096):
+    def __init__(self, memory_size: int = 8192):
         self.processor = RISCProcessor(memory_size)
         self.assembler = RISCAssembler()
         self.task_manager = TaskManager()
@@ -156,7 +156,7 @@ class RISCEmulator:
                 "message": f"Task {self.current_task} verification completed"
             }
         except Exception as e:
-        return {
+            return {
                 "success": False,
                 "error": str(e),
                 "message": f"Verification error: {str(e)}"

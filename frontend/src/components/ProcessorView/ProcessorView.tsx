@@ -144,24 +144,24 @@ export const ProcessorView: React.FC = () => {
         <div className="space-y-4">
           <div className="bg-gray-50 rounded-lg p-4">
             <label className="block text-sm font-medium text-gray-700 mb-2 font-body">
-              {(current_task === 1 || current_task === 2) && state.processor.is_halted ? 'Итоговый ответ' : 'Флаги состояния'}
-              {(current_task === 1 || current_task === 2) && state.processor.is_halted && (
+              {(current_task === 1 || current_task === 2) && state.processor.is_halted && state.processor.cycles > 0 ? 'Итоговый ответ' : 'Флаги состояния'}
+              {(current_task === 1 || current_task === 2) && state.processor.is_halted && state.processor.cycles > 0 && (
                 <span className="ml-2 text-xs text-green-600 animate-pulse">✓ готово</span>
               )}
             </label>
-            {current_task === 1 && state.processor.is_halted ? (
+            {current_task === 1 && state.processor.is_halted && state.processor.cycles > 0 ? (
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 border-2 border-blue-200 text-center">
                 <div className="text-4xl font-mono font-bold text-blue-700 mb-2">
-                  {state.processor.registers[0] || 280}
+                  {state.processor.registers[0]}
                 </div>
                 <div className="text-lg text-gray-600 mb-2">
                   Сумма элементов массива
                 </div>
                 <div className="text-sm text-gray-500">
-                  10+20+30+40+50+60+70 = 280
+                  {state.processor.registers[0] === 280 ? '10+20+30+40+50+60+70 = 280' : `Результат: ${state.processor.registers[0]}`}
                 </div>
               </div>
-            ) : current_task === 2 && state.processor.is_halted ? (
+            ) : current_task === 2 && state.processor.is_halted && state.processor.cycles > 0 ? (
               <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6 border-2 border-green-200 text-center">
                 <div className="text-4xl font-mono font-bold text-green-700 mb-2">
                   {(() => {

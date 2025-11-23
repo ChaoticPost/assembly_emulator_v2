@@ -1,124 +1,605 @@
-/* ADD: Enhanced processor view styles with modern cards and animations */
-.processor-card {
-  margin-bottom: 0;
+/* Основной контейнер - адаптивный размер */
+.processor-view-container {
+  width: 100%;
+  min-height: 500px;
+  max-height: 90vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: clamp(1rem, 1.5vh, 1.5rem);
+  padding: clamp(1rem, 1.5vw, 1.5rem);
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
-  border-radius: 16px;
+  border-radius: clamp(0.75rem, 1.5vw, 1rem);
   box-shadow: 
     0 8px 32px rgba(0, 0, 0, 0.1),
     0 2px 8px rgba(0, 0, 0, 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.2);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  overflow: visible;
 }
 
-.processor-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 
-    0 12px 40px rgba(0, 0, 0, 0.15),
-    0 4px 12px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+/* Заголовок */
+.processor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: clamp(0.5rem, 1vh, 1rem) 0;
 }
 
-.processor-card .p-card-title {
-  font-size: 1.5rem;
+.processor-title {
+  font-size: clamp(1.25rem, 3vw, 2rem);
   font-weight: 700;
   color: #166534;
-  margin-bottom: 24px;
+  margin: 0;
   text-shadow: 0 2px 4px rgba(22, 101, 52, 0.1);
+  transition: font-size 0.3s ease;
 }
 
-.processor-grid {
+.processor-status {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 1vw, 0.75rem);
+}
+
+.status-indicator {
+  width: clamp(0.5rem, 1vw, 0.75rem);
+  height: clamp(0.5rem, 1vw, 0.75rem);
+  background-color: #22c55e;
+  border-radius: 50%;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.status-text {
+  font-size: clamp(0.75rem, 1.5vw, 1rem);
+  color: #4b5563;
+}
+
+/* Основная сетка - пропорциональное распределение */
+.processor-grid-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 24px;
+  grid-template-columns: 2fr 1.5fr 2fr;
+  gap: clamp(1rem, 1.5vw, 1.5rem);
+  height: 100%;
+  width: 100%;
+  transition: grid-template-columns 0.3s ease, gap 0.3s ease;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
-.processor-item {
+/* Секции процессора */
+.processor-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.05), rgba(22, 163, 74, 0.05));
-  border-radius: 12px;
-  border: 1px solid rgba(34, 197, 94, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: clamp(1rem, 1.5vh, 1.5rem);
+  min-height: fit-content;
+  overflow: visible;
+  min-width: 0;
 }
 
-.processor-item:hover {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(22, 163, 74, 0.1));
+/* Секция регистров - без прокрутки, чтобы все регистры были видны */
+.registers-section {
+  overflow: visible !important;
+  min-width: 0;
+  display: flex !important;
+  flex-direction: column;
+  min-height: fit-content;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Контент секции */
+.section-content {
+  background: linear-gradient(135deg, rgba(249, 250, 251, 0.95), rgba(243, 244, 246, 0.95));
+  border-radius: clamp(0.5rem, 1vw, 1rem);
+  padding: clamp(1rem, 1.5vw, 1.5rem);
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: visible !important;
+  min-width: 0;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+}
+
+.section-content:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(249, 250, 251, 0.98));
   border-color: rgba(34, 197, 94, 0.2);
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.processor-item label {
-  font-weight: 700;
-  color: #4a5568;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
+/* Метки секций */
+.section-label {
+  display: block;
+  font-size: clamp(0.75rem, 1.5vw, 1rem);
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: clamp(0.75rem, 1vh, 1rem);
+  text-transform: none;
+  letter-spacing: 0.025em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
-.value-display {
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 2px solid rgba(34, 197, 94, 0.1);
-  border-radius: 10px;
+.label-animation {
+  margin-left: clamp(0.25rem, 0.5vw, 0.5rem);
+  font-size: clamp(0.625rem, 1.2vw, 0.875rem);
+  color: #22c55e;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Секция регистров */
+.registers-section {
+  justify-content: flex-start;
+}
+
+.registers-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(4, auto);
+  gap: clamp(0.75rem, 1vw, 1rem);
+  width: 100%;
+  min-height: fit-content;
+  align-content: start;
+  box-sizing: border-box;
+  visibility: visible;
+  opacity: 1;
+}
+
+.register-item {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-radius: clamp(0.5rem, 0.8vw, 0.75rem);
+  padding: clamp(0.75rem, 1.2vw, 1rem);
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: clamp(3.5rem, 8vh, 4.5rem);
+  box-sizing: border-box;
+  overflow: visible;
+  min-width: 0;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative;
+  z-index: 1;
+}
+
+.register-item:hover {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(255, 255, 255, 1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.register-label {
+  font-size: clamp(0.625rem, 1.2vw, 0.875rem);
+  font-weight: 600;
+  color: #4b5563;
+  margin-bottom: clamp(0.5rem, 0.5vh, 0.5rem);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  width: 100%;
+}
+
+.register-accumulator {
+  color: #22c55e;
+  font-weight: 500;
+}
+
+.register-value {
+  font-size: clamp(1rem, 2.5vw, 1.75rem);
   font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-  font-size: 1rem;
-  font-weight: 600;
-  min-height: 24px;
-  color: #2d3748;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  font-weight: 700;
+  color: #22c55e;
+  line-height: 1.2;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  width: 100%;
 }
 
-.value-display:hover {
-  border-color: rgba(59, 130, 246, 0.3);
+/* Секция специальных регистров */
+.special-registers-section {
+  justify-content: flex-start;
+  gap: clamp(1rem, 1.5vh, 1.5rem);
+  min-width: 0;
+}
+
+.special-register-value {
+  font-size: clamp(1.5rem, 4vw, 3rem);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-weight: 700;
+  color: #22c55e;
   background: rgba(255, 255, 255, 0.95);
-}
-
-.flags-container {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.flags-container .p-chip {
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 8px 12px;
-  border-radius: 20px;
+  border-radius: clamp(0.5rem, 0.8vw, 0.75rem);
+  padding: clamp(1rem, 1.5vw, 1.5rem);
+  text-align: center;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  min-height: clamp(3rem, 8vh, 5rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  width: 100%;
 }
 
-.flags-container .p-chip.p-chip-success {
-  background: linear-gradient(135deg, #48bb78, #38a169);
+.pc-value {
+  aspect-ratio: 2 / 1;
+}
+
+.cycles-value {
+  aspect-ratio: 2 / 1;
+}
+
+/* Регистр команд (IR) */
+.ir-value {
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: clamp(0.5rem, 0.8vw, 0.75rem);
+  padding: clamp(1rem, 1.5vw, 1.5rem);
+  min-height: clamp(2.5rem, 6vh, 4rem);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  width: 100%;
+}
+
+.ir-prefix {
+  color: #9ca3af;
+  margin-right: clamp(0.25rem, 0.5vw, 0.5rem);
+}
+
+.ir-hex {
+  color: #22c55e;
+  font-weight: 700;
+}
+
+.ir-asm {
+  margin-top: clamp(0.75rem, 1vh, 0.75rem);
+  font-size: clamp(0.625rem, 1.2vw, 0.875rem);
+  color: #4b5563;
+  background: rgba(243, 244, 246, 0.8);
+  border-radius: clamp(0.25rem, 0.5vw, 0.5rem);
+  padding: clamp(0.75rem, 1vw, 0.75rem);
+  width: 100%;
+  box-sizing: border-box;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+.ir-asm-label {
+  font-weight: 600;
+  margin-right: clamp(0.25rem, 0.5vw, 0.5rem);
+}
+
+/* Секция флагов */
+.flags-section {
+  justify-content: flex-start;
+}
+
+.flags-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(0.75rem, 1vw, 1rem);
+  width: 100%;
+  min-height: fit-content;
+  align-content: start;
+  box-sizing: border-box;
+}
+
+.flag-item {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: clamp(0.5rem, 0.8vw, 0.75rem);
+  padding: clamp(1rem, 1.5vw, 1.5rem);
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: clamp(4rem, 9vh, 5rem);
+  position: relative;
+  box-sizing: border-box;
+  overflow: visible;
+  min-width: 0;
+}
+
+.flag-item:hover {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(255, 255, 255, 1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.flag-indicator {
+  width: clamp(2rem, 5vw, 3.5rem);
+  height: clamp(2rem, 5vw, 3.5rem);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: white;
-  border: none;
+  font-weight: 700;
+  font-size: clamp(0.875rem, 2vw, 1.25rem);
+  margin-bottom: clamp(0.5rem, 1vh, 0.75rem);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.flags-container .p-chip.p-chip-secondary {
-  background: linear-gradient(135deg, #e2e8f0, #cbd5e0);
-  color: #4a5568;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+.flag-active {
+  background-color: #22c55e;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.flags-container .p-chip:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.flag-inactive {
+  background-color: #9ca3af;
 }
 
-/* ADD: Responsive design for processor grid */
-@media (max-width: 768px) {
-  .processor-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
+.flag-name {
+  font-size: clamp(0.625rem, 1.2vw, 0.875rem);
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: clamp(0.5rem, 0.5vh, 0.5rem);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  width: 100%;
+  text-align: center;
+}
+
+.flag-desc {
+  font-size: clamp(0.5rem, 1vw, 0.75rem);
+  color: #6b7280;
+  line-height: 1.3;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  width: 100%;
+  text-align: center;
+}
+
+.flag-animation {
+  position: absolute;
+  top: clamp(0.25rem, 0.5vh, 0.5rem);
+  right: clamp(0.25rem, 0.5vw, 0.5rem);
+  font-size: clamp(0.625rem, 1.2vw, 0.875rem);
+  color: #f97316;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+/* Результат задачи */
+.task-result {
+  background: linear-gradient(135deg, rgba(220, 252, 231, 0.95), rgba(187, 247, 208, 0.95));
+  border-radius: clamp(0.5rem, 1vw, 1rem);
+  padding: clamp(1.5rem, 3vw, 3rem);
+  border: 2px solid rgba(34, 197, 94, 0.3);
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.task-result-value {
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-weight: 700;
+  color: #15803d;
+  margin-bottom: clamp(0.5rem, 1vh, 1rem);
+  line-height: 1.2;
+}
+
+.task-result-title {
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  color: #374151;
+  margin-bottom: clamp(0.5rem, 1vh, 1rem);
+}
+
+.task-result-desc {
+  font-size: clamp(0.75rem, 1.5vw, 1rem);
+  color: #6b7280;
+}
+
+/* Анимации */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
   }
-  
-  .processor-item {
-    padding: 16px;
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.5rem);
+  }
+}
+
+.animate-counter-increase {
+  animation: counterIncrease 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes counterIncrease {
+  0% {
+    transform: scale(1);
+    background-color: inherit;
+  }
+  50% {
+    transform: scale(1.1);
+    background-color: #fbbf24;
+  }
+  100% {
+    transform: scale(1);
+    background-color: inherit;
+  }
+}
+
+/* Адаптивность для разных размеров экрана */
+@media (max-width: 1200px) {
+  .processor-grid-layout {
+    grid-template-columns: 2fr 1.2fr 1.8fr;
+    gap: clamp(1rem, 1.5vw, 1.5rem);
+  }
+}
+
+@media (max-width: 992px) {
+  .processor-grid-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    gap: clamp(1rem, 1.5vh, 1.5rem);
+  }
+
+  .processor-section {
+    height: auto;
+    max-height: none;
+    gap: clamp(1rem, 1.5vh, 1.5rem);
+  }
+
+  .registers-section {
+    overflow: visible;
+  }
+
+  .registers-grid {
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, auto);
+    gap: clamp(0.75rem, 1vw, 1rem);
+  }
+
+  .flags-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: clamp(0.75rem, 1vw, 1rem);
+  }
+}
+
+@media (max-width: 768px) {
+  .processor-view-container {
+    padding: clamp(1rem, 1.5vw, 1.5rem);
+    gap: clamp(1rem, 1.5vh, 1.5rem);
+    max-height: 85vh;
+    min-height: 450px;
+  }
+
+  .processor-grid-layout {
+    gap: clamp(1rem, 1.5vw, 1.5rem);
+  }
+
+  .processor-section {
+    gap: clamp(1rem, 1.5vh, 1.5rem);
+  }
+
+  .section-content {
+    padding: clamp(1rem, 1.5vw, 1.5rem);
+  }
+
+  .registers-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, auto);
+    gap: clamp(0.75rem, 1vw, 1rem);
+  }
+
+  .flags-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: clamp(0.75rem, 1vw, 1rem);
+  }
+
+  .special-registers-section {
+    gap: clamp(1rem, 1.5vh, 1.5rem);
+  }
+
+  .processor-title {
+    font-size: clamp(1.125rem, 3vw, 1.5rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .processor-view-container {
+    padding: clamp(0.75rem, 1.5vw, 1rem);
+    gap: clamp(0.75rem, 1.5vh, 1rem);
+    max-height: 80vh;
+    min-height: 400px;
+    border-radius: clamp(0.5rem, 1.5vw, 0.75rem);
+  }
+
+  .processor-grid-layout {
+    gap: clamp(0.75rem, 1vh, 1rem);
+  }
+
+  .processor-section {
+    gap: clamp(0.75rem, 1.5vh, 1rem);
+  }
+
+  .registers-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, auto);
+    gap: clamp(0.75rem, 1vw, 1rem);
+  }
+
+  .flags-grid {
+    grid-template-columns: 1fr;
+    gap: clamp(0.75rem, 1vw, 1rem);
+  }
+
+  .register-item {
+    min-height: clamp(3rem, 7vh, 4rem);
+    padding: clamp(0.75rem, 1.5vw, 1rem);
+  }
+
+  .flag-item {
+    min-height: clamp(3.5rem, 8vh, 4.5rem);
+    padding: clamp(0.75rem, 1.5vw, 1rem);
+  }
+
+  .section-content {
+    padding: clamp(0.75rem, 1.5vw, 1rem);
+  }
+
+  .processor-title {
+    font-size: 1.125rem;
+  }
+}
+
+/* Плавное масштабирование при изменении размера окна */
+@media (orientation: landscape) and (max-height: 600px) {
+  .processor-view-container {
+    padding: clamp(0.5rem, 1vw, 1rem);
+    gap: clamp(0.5rem, 1vh, 1rem);
+  }
+
+  .section-content {
+    padding: clamp(0.5rem, 1vw, 1rem);
+  }
+
+  .processor-section {
+    gap: clamp(0.5rem, 1vh, 0.75rem);
+  }
+}
+
+/* Оптимизация для очень больших экранов */
+@media (min-width: 1920px) {
+  .processor-grid-layout {
+    grid-template-columns: 2.2fr 1.5fr 2.2fr;
+    gap: clamp(1.5rem, 2.5vw, 2.5rem);
   }
 }

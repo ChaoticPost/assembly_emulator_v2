@@ -63,23 +63,6 @@ export const TaskPanel: React.FC = () => {
           ))}
         </div>
       )}
-
-      {activeTask && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 animate-fadeInUp">
-          <h4 className="text-lg font-semibold text-green-900 mb-2 font-heading">
-            {tasks.find(t => t.id === activeTask)?.title}
-          </h4>
-          <p className="text-green-800 text-sm leading-relaxed font-body">
-            {tasks.find(t => t.id === activeTask)?.description}
-          </p>
-          <div className="mt-3 flex items-center">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              <div className="w-2 h-2 bg-green-400 rounded-full mr-1.5 animate-pulse"></div>
-              Активно
-            </span>
-          </div>
-        </div>
-      )}
     </Card>
   );
 };

@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { Card } from 'flowbite-react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useEmulatorStore } from '../../store/emulatorStore';
 import './ProcessorView.css';
 
@@ -8,17 +7,61 @@ export const ProcessorView: React.FC = () => {
   const { processor } = state;
   const [previousCounter, setPreviousCounter] = useState(processor.program_counter);
   const [animateCounter, setAnimateCounter] = useState(false);
+  
+  // Отладочная информация
+  useEffect(() => {
+    console.log('ProcessorView: состояние обновлено', {
+      registers: processor.registers,
+      registersLength: processor.registers?.length,
+      pc: processor.program_counter,
+      ir: processor.instruction_register,
+      ir_asm: processor.instruction_register_asm,
+      flags: processor.flags,
+      cycles: processor.cycles
+    });
+  }, [processor]);
+  
+  // Убеждаемся, что регистры всегда инициализированы
+  // Используем useMemo для предотвращения лишних пересчетов
+  const displayRegisters = useMemo(() => {
+    // Получаем регистры из состояния процессора
+    let regs = processor.registers;
+    
+    // Проверяем, что регистры существуют и это массив
+    if (!regs || !Array.isArray(regs)) {
+      console.warn('ProcessorView: регистры не инициализированы, используем нули');
+      return [0, 0, 0, 0, 0, 0, 0, 0];
+    }
+    
+    // Гарантируем, что у нас есть ровно 8 регистров
+    const result = [];
+    for (let i = 0; i < 8; i++) {
+      const value = regs[i];
+      // Если значение undefined или null, используем 0
+      result[i] = (value !== undefined && value !== null) ? value : 0;
+    }
+    
+    // Отладочная информация
+    console.log('ProcessorView: displayRegisters =', result);
+    
+    return result;
+  }, [processor.registers]);
 
   // Функция форматирования значений для отображения
-  const formatValue = (value: number, isHex: boolean = false) => {
+  const formatValue = (value: number | undefined | null, isHex: boolean = false) => {
+    // Обрабатываем undefined и null
+    if (value === undefined || value === null) {
+      return isHex ? '0x0000' : '0';
+    }
+    
     if (isHex) {
-      if (value < 0) {
-        // Для отрицательных чисел используем дополнение до двух
-        // Преобразуем в беззнаковое 16-битное число
-        const unsigned = (value >>> 0) & 0xFFFF;
-        return `0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`;
-      }
-      return `0x${value.toString(16).toUpperCase().padStart(4, '0')}`;
+      // Ограничиваем значение 16-битным диапазоном (0x0000 - 0xFFFF)
+      // Обрабатываем как положительные, так и отрицательные числа
+      // Используем беззнаковое представление для отрицательных чисел
+      const numValue = typeof value === 'number' ? value : 0;
+      const unsigned = (numValue >>> 0) & 0xFFFF;
+      const hexString = unsigned.toString(16).toUpperCase().padStart(4, '0');
+      return `0x${hexString}`;
     }
     return value.toString();
   };
@@ -45,6 +88,11 @@ export const ProcessorView: React.FC = () => {
 
   // Отслеживаем изменения флагов для анимации
   useEffect(() => {
+    if (!processor.flags || !previousFlags) {
+      setPreviousFlags(processor.flags || { zero: false, carry: false, overflow: false, negative: false });
+      return;
+    }
+    
     const flagsChanged = {
       zero: processor.flags.zero !== previousFlags.zero,
       carry: processor.flags.carry !== previousFlags.carry,
@@ -70,103 +118,123 @@ export const ProcessorView: React.FC = () => {
   }, [processor.flags, previousFlags]);
 
   return (
-    <Card className="glass-card p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h5 className="text-xl font-bold text-white-900 font-heading">Процессор RISC</h5>
-        <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-sm text-gray-600">Активен</span>
+    <div className="processor-view-container">
+      <div className="processor-header">
+        <h5 className="processor-title">Процессор RISC</h5>
+        <div className="processor-status">
+          <div className="status-indicator"></div>
+          <span className="status-text">Активен</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="processor-grid-layout">
         {/* Регистры общего назначения */}
-        <div className="space-y-4">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-3 font-body">
+        <div className="processor-section registers-section" style={{ display: 'flex', visibility: 'visible', opacity: 1 }}>
+          <div className="section-content" style={{ display: 'block', visibility: 'visible', opacity: 1 }}>
+            <label className="section-label">
               Регистры общего назначения (R0-R7)
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              {processor.registers.map((value, index) => (
-                <div key={index} className="bg-white rounded-lg p-2 border border-gray-200">
-                  <div className="text-xs font-semibold text-gray-600 mb-1">
-                    R{index} {index === 0 && <span className="text-green-600">(аккумулятор)</span>}
+            <div className="registers-grid" style={{ display: 'grid', visibility: 'visible', opacity: 1 }}>
+              {/* Гарантируем отображение всех 8 регистров R0-R7 */}
+              {Array.from({ length: 8 }, (_, index) => {
+                // Получаем значение регистра из displayRegisters
+                const registerValue = displayRegisters[index] !== undefined && displayRegisters[index] !== null 
+                  ? displayRegisters[index] 
+                  : 0;
+                
+                // Форматируем значение в hex
+                const hexValue = formatValue(registerValue, true);
+                
+                return (
+                  <div 
+                    key={`register-R${index}`} 
+                    className="register-item"
+                    style={{ 
+                      display: 'flex', 
+                      visibility: 'visible', 
+                      opacity: 1,
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)'
+                    }}
+                    data-register-index={index}
+                    data-register-value={registerValue}
+                  >
+                    <div className="register-label">
+                      R{index} {index === 0 && <span className="register-accumulator">(аккумулятор)</span>}
+                    </div>
+                    <div className="register-value">
+                      {hexValue}
+                    </div>
                   </div>
-                  <div className="text-lg font-mono font-bold text-green-600">
-                    {formatValue(value, true)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* Специальные регистры */}
-        <div className="space-y-4">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2 font-body">
+        <div className="processor-section special-registers-section">
+          <div className="section-content">
+            <label className="section-label">
               Счётчик команд (PC)
               {animateCounter && (
-                <span className="ml-2 text-xs text-green-600 animate-pulse">↑ увеличивается</span>
+                <span className="label-animation">↑ увеличивается</span>
               )}
             </label>
-            <div className={`text-2xl font-mono font-bold text-green-600 bg-white rounded-lg p-3 text-center transition-all duration-300 ${animateCounter ? 'animate-counter-increase' : ''
-              }`}>
-              {processor.program_counter}
+            <div className={`special-register-value pc-value ${animateCounter ? 'animate-counter-increase' : ''}`}>
+              {processor.program_counter !== undefined && processor.program_counter !== null
+                ? processor.program_counter
+                : 0}
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2 font-body">
+          <div className="section-content">
+            <label className="section-label">
               Регистр команд (IR)
             </label>
-            <div className="text-lg font-mono text-gray-800 bg-white rounded-lg p-3 min-h-[3rem] flex items-center">
-              <span className="text-gray-400">0x</span>
-              <span className="text-green-600 font-bold">
-                {processor.instruction_register.toString(16).toUpperCase().padStart(4, '0')}
+            <div className="ir-value">
+              <span className="ir-prefix">0x</span>
+              <span className="ir-hex">
+                {processor.instruction_register !== undefined && processor.instruction_register !== null
+                  ? processor.instruction_register.toString(16).toUpperCase().padStart(4, '0')
+                  : '0000'}
               </span>
             </div>
-            {processor.instruction_register_asm && (
-              <div className="mt-2 text-sm text-gray-600 bg-gray-100 rounded p-2">
-                <span className="font-semibold">Ассемблер:</span> {processor.instruction_register_asm}
+            {(processor.instruction_register_asm || processor.current_command) ? (
+              <div className="ir-asm">
+                <span className="ir-asm-label">Ассемблер:</span> {processor.instruction_register_asm || processor.current_command || 'NOP'}
+              </div>
+            ) : (
+              <div className="ir-asm">
+                <span className="ir-asm-label">Ассемблер:</span> <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>нет команды</span>
               </div>
             )}
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2 font-body">
-              Циклы выполнения
-            </label>
-            <div className="text-2xl font-mono font-bold text-green-600 bg-white rounded-lg p-3 text-center">
-              {processor.cycles}
-            </div>
           </div>
         </div>
 
         {/* Флаги состояния */}
-        <div className="space-y-4">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2 font-body">
+        <div className="processor-section flags-section">
+          <div className="section-content">
+            <label className="section-label">
               {(current_task === 1 || current_task === 2) && state.processor.is_halted && state.processor.cycles > 0 ? 'Итоговый ответ' : 'Флаги состояния'}
               {(current_task === 1 || current_task === 2) && state.processor.is_halted && state.processor.cycles > 0 && (
-                <span className="ml-2 text-xs text-green-600 animate-pulse">✓ готово</span>
+                <span className="label-animation">✓ готово</span>
               )}
             </label>
             {current_task === 1 && state.processor.is_halted && state.processor.cycles > 0 ? (
-              <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-6 border-2 border-green-200 text-center">
-                <div className="text-4xl font-mono font-bold text-green-700 mb-2">
+              <div className="task-result">
+                <div className="task-result-value">
                   {formatValue(state.processor.registers[0] || 280, true)}
                 </div>
-                <div className="text-lg text-gray-600 mb-2">
+                <div className="task-result-title">
                   Сумма элементов массива
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="task-result-desc">
                   {state.processor.registers[0] === 280 || state.processor.registers[0] === 0 ? '10+20+30+40+50+60+70 = 280 (0x0118)' : `Результат: ${formatValue(state.processor.registers[0], true)} (${state.processor.registers[0]})`}
                 </div>
               </div>
             ) : current_task === 2 && state.processor.is_halted && state.processor.cycles > 0 ? (
-              <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-6 border-2 border-green-200 text-center">
-                <div className="text-4xl font-mono font-bold text-green-700 mb-2">
+              <div className="task-result">
+                <div className="task-result-value">
                   {(() => {
                     const memValue = state.memory.ram && state.memory.ram.length > 0x1100 ? state.memory.ram[0x1100] : null;
                     if (memValue !== null) {
@@ -175,87 +243,84 @@ export const ProcessorView: React.FC = () => {
                     return '0x32';
                   })()}
                 </div>
-                <div className="text-lg text-gray-600 mb-2">
+                <div className="task-result-title">
                   Свертка двух массивов
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="task-result-desc">
                   50 в десятичной системе
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flags-grid">
                 {/* Zero Flag */}
-                <div className="bg-white rounded-lg p-2 border border-gray-200 text-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm transition-all duration-300 mx-auto mb-1 ${processor.flags.zero
-                    ? 'bg-green-500 animate-pulse'
-                    : 'bg-gray-400'
-                    } ${animateFlags.zero ? 'animate-counter-increase' : ''}`}>
-                    {processor.flags.zero ? '1' : '0'}
+                <div className="flag-item">
+                  <div className={`flag-indicator ${processor.flags?.zero ? 'flag-active' : 'flag-inactive'} ${animateFlags.zero ? 'animate-counter-increase' : ''}`}>
+                    {processor.flags?.zero ? '1' : '0'}
                   </div>
-                  <div className="text-xs font-semibold text-gray-800 mb-1">Zero</div>
-                  <div className="text-xs text-gray-500">
-                    {processor.flags.zero ? 'ноль' : 'не ноль'}
+                  <div className="flag-name">Zero</div>
+                  <div className="flag-desc">
+                    {processor.flags?.zero ? 'ноль' : 'не ноль'}
                   </div>
                   {animateFlags.zero && (
-                    <div className="text-xs text-orange-600 animate-bounce mt-1">↑</div>
+                    <div className="flag-animation">↑</div>
                   )}
                 </div>
 
                 {/* Carry Flag */}
-                <div className="bg-white rounded-lg p-2 border border-gray-200 text-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm transition-all duration-300 mx-auto mb-1 ${processor.flags.carry
-                    ? 'bg-green-500 animate-pulse'
-                    : 'bg-gray-400'
-                    } ${animateFlags.carry ? 'animate-counter-increase' : ''}`}>
-                    {processor.flags.carry ? '1' : '0'}
+                <div className="flag-item">
+                  <div className={`flag-indicator ${processor.flags?.carry ? 'flag-active' : 'flag-inactive'} ${animateFlags.carry ? 'animate-counter-increase' : ''}`}>
+                    {processor.flags?.carry ? '1' : '0'}
                   </div>
-                  <div className="text-xs font-semibold text-gray-800 mb-1">Carry</div>
-                  <div className="text-xs text-gray-500">
-                    {processor.flags.carry ? 'перенос' : 'нет переноса'}
+                  <div className="flag-name">Carry</div>
+                  <div className="flag-desc">
+                    {processor.flags?.carry ? 'перенос' : 'нет переноса'}
                   </div>
                   {animateFlags.carry && (
-                    <div className="text-xs text-orange-600 animate-bounce mt-1">↑</div>
+                    <div className="flag-animation">↑</div>
                   )}
                 </div>
 
                 {/* Overflow Flag */}
-                <div className="bg-white rounded-lg p-2 border border-gray-200 text-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm transition-all duration-300 mx-auto mb-1 ${processor.flags.overflow
-                    ? 'bg-green-500 animate-pulse'
-                    : 'bg-gray-400'
-                    } ${animateFlags.overflow ? 'animate-counter-increase' : ''}`}>
-                    {processor.flags.overflow ? '1' : '0'}
+                <div className="flag-item">
+                  <div className={`flag-indicator ${processor.flags?.overflow ? 'flag-active' : 'flag-inactive'} ${animateFlags.overflow ? 'animate-counter-increase' : ''}`}>
+                    {processor.flags?.overflow ? '1' : '0'}
                   </div>
-                  <div className="text-xs font-semibold text-gray-800 mb-1">Overflow</div>
-                  <div className="text-xs text-gray-500">
-                    {processor.flags.overflow ? 'переполнение' : 'нет переполнения'}
+                  <div className="flag-name">Overflow</div>
+                  <div className="flag-desc">
+                    {processor.flags?.overflow ? 'переполнение' : 'нет переполнения'}
                   </div>
                   {animateFlags.overflow && (
-                    <div className="text-xs text-orange-600 animate-bounce mt-1">↑</div>
+                    <div className="flag-animation">↑</div>
                   )}
                 </div>
 
                 {/* Negative Flag */}
-                <div className="bg-white rounded-lg p-2 border border-gray-200 text-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm transition-all duration-300 mx-auto mb-1 ${processor.flags.negative
-                    ? 'bg-green-500 animate-pulse'
-                    : 'bg-gray-400'
-                    } ${animateFlags.negative ? 'animate-counter-increase' : ''}`}>
-                    {processor.flags.negative ? '1' : '0'}
+                <div className="flag-item">
+                  <div className={`flag-indicator ${processor.flags?.negative ? 'flag-active' : 'flag-inactive'} ${animateFlags.negative ? 'animate-counter-increase' : ''}`}>
+                    {processor.flags?.negative ? '1' : '0'}
                   </div>
-                  <div className="text-xs font-semibold text-gray-800 mb-1">Negative</div>
-                  <div className="text-xs text-gray-500">
-                    {processor.flags.negative ? 'отрицательное' : 'положительное'}
+                  <div className="flag-name">Negative</div>
+                  <div className="flag-desc">
+                    {processor.flags?.negative ? 'отрицательное' : 'положительное'}
                   </div>
                   {animateFlags.negative && (
-                    <div className="text-xs text-orange-600 animate-bounce mt-1">↑</div>
+                    <div className="flag-animation">↑</div>
                   )}
                 </div>
               </div>
             )}
           </div>
+
+          <div className="section-content">
+            <label className="section-label">
+              Циклы выполнения
+            </label>
+            <div className="special-register-value cycles-value">
+              {processor.cycles}
+            </div>
+          </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };

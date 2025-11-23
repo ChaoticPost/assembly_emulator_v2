@@ -221,7 +221,7 @@ class RISCProcessor:
         # Проверка переполнения для 16-битных чисел
         if result > 32767 or result < -32768:
             self.processor.flags["overflow"] = True
-            else:
+        else:
             self.processor.flags["overflow"] = False
         
         # Упрощенная логика для флага переноса
@@ -229,7 +229,7 @@ class RISCProcessor:
             self.processor.flags["carry"] = True
         elif operation == "sub" and result > 0:
             self.processor.flags["carry"] = True
-            else:
+        else:
             self.processor.flags["carry"] = False
     
     def execute_instruction(self, instruction: str, operands: List[str] = None):
@@ -250,6 +250,8 @@ class RISCProcessor:
                 val1 = self._get_operand_value(rs1, mode1)
                 val2 = self._get_operand_value(rs2, mode2)
                 result = val1 + val2
+                # Ограничиваем результат 16-битным значением (0x0000 - 0xFFFF)
+                result = result & 0xFFFF
                 self.update_flags(result, "add")
                 self.processor.registers[rd] = result
             else:
@@ -264,6 +266,8 @@ class RISCProcessor:
                 val1 = self._get_operand_value(rs1, mode1)
                 val2 = self._get_operand_value(rs2, mode2)
                 result = val1 - val2
+                # Ограничиваем результат 16-битным значением
+                result = result & 0xFFFF
                 self.update_flags(result, "sub")
                 self.processor.registers[rd] = result
             else:
@@ -278,6 +282,8 @@ class RISCProcessor:
                 val1 = self._get_operand_value(rs1, mode1)
                 val2 = self._get_operand_value(rs2, mode2)
                 result = val1 * val2
+                # Ограничиваем результат 16-битным значением
+                result = result & 0xFFFF
                 self.update_flags(result)
                 self.processor.registers[rd] = result
             else:
@@ -294,6 +300,8 @@ class RISCProcessor:
                 if val2 == 0:
                     raise Exception("Division by zero")
                 result = val1 // val2
+                # Ограничиваем результат 16-битным значением
+                result = result & 0xFFFF
                 self.update_flags(result)
                 self.processor.registers[rd] = result
             else:
@@ -308,6 +316,8 @@ class RISCProcessor:
                 val1 = self._get_operand_value(rs1, mode1)
                 val2 = self._get_operand_value(rs2, mode2)
                 result = val1 & val2
+                # Ограничиваем результат 16-битным значением
+                result = result & 0xFFFF
                 self.update_flags(result)
                 self.processor.registers[rd] = result
             else:
@@ -322,6 +332,8 @@ class RISCProcessor:
                 val1 = self._get_operand_value(rs1, mode1)
                 val2 = self._get_operand_value(rs2, mode2)
                 result = val1 | val2
+                # Ограничиваем результат 16-битным значением
+                result = result & 0xFFFF
                 self.update_flags(result)
                 self.processor.registers[rd] = result
             else:
@@ -336,6 +348,8 @@ class RISCProcessor:
                 val1 = self._get_operand_value(rs1, mode1)
                 val2 = self._get_operand_value(rs2, mode2)
                 result = val1 ^ val2
+                # Ограничиваем результат 16-битным значением
+                result = result & 0xFFFF
                 self.update_flags(result)
                 self.processor.registers[rd] = result
             else:
@@ -348,6 +362,8 @@ class RISCProcessor:
                 rs1, mode1 = self._parse_operand(operands[1])
                 val1 = self._get_operand_value(rs1, mode1)
                 result = ~val1
+                # Ограничиваем результат 16-битным значением
+                result = result & 0xFFFF
                 self.update_flags(result)
                 self.processor.registers[rd] = result
             else:
@@ -359,6 +375,8 @@ class RISCProcessor:
                 rd, _ = self._parse_operand(operands[0])
                 rs1, mode1 = self._parse_operand(operands[1])
                 val1 = self._get_operand_value(rs1, mode1)
+                # Ограничиваем значение 16-битным диапазоном
+                val1 = val1 & 0xFFFF
                 self.processor.registers[rd] = val1
             else:
                 raise Exception(f"MOV requires 2 operands: MOV rd, rs1")
@@ -368,7 +386,15 @@ class RISCProcessor:
             if len(operands) >= 2:
                 rd, _ = self._parse_operand(operands[0])
                 imm, _ = self._parse_operand(operands[1])
+                # Ограничиваем значение 16-битным диапазоном (0x0000 - 0xFFFF)
+                imm = int(imm) & 0xFFFF
+                # Убеждаемся, что регистр существует
+                if rd < 0 or rd >= len(self.processor.registers):
+                    # Расширяем массив регистров, если нужно
+                    while len(self.processor.registers) <= rd:
+                        self.processor.registers.append(0)
                 self.processor.registers[rd] = imm
+                print(f"DEBUG LDI: rd={rd}, imm={imm}, registers[{rd}]={self.processor.registers[rd]}, all_registers={self.processor.registers}")
             else:
                 raise Exception(f"LDI requires 2 operands: LDI rd, imm")
             
@@ -377,21 +403,31 @@ class RISCProcessor:
             if len(operands) >= 2:
                 rd, _ = self._parse_operand(operands[0])
                 addr, mode1 = self._parse_operand(operands[1])
-                val1 = self._get_operand_value(addr, mode1)
-                mem_val = self.memory.ram[addr] if 0 <= addr < len(self.memory.ram) else None
-                mem_str = f"0x{mem_val:04X}" if mem_val is not None else 'OUT_OF_BOUNDS'
-                print(f"DEBUG LDR: operands={operands}, rd=R{rd}, addr=0x{addr:04X}, mode1={mode1}, val1=0x{val1:04X}, memory[0x{addr:04X}]={mem_str}")
-                self.processor.registers[rd] = val1
+                # Для DIRECT режима _get_operand_value уже возвращает значение из памяти
+                mem_val = self._get_operand_value(addr, mode1)
+                # Ограничиваем значение 16-битным диапазоном
+                mem_val = mem_val & 0xFFFF
+                self.processor.registers[rd] = mem_val
             else:
                 raise Exception(f"LDR requires 2 operands: LDR rd, [address]")
             
-        # Формат: LDRR rd, [rs1] - rd = [rs1]
+        # Формат: LDRR rd, [rs1] - rd = [rs1] (косвенно-регистровая адресация)
         elif instruction == "LDRR":
             if len(operands) >= 2:
                 rd, _ = self._parse_operand(operands[0])
                 rs1, mode1 = self._parse_operand(operands[1])
-                val1 = self._get_operand_value(rs1, mode1)
-                self.processor.registers[rd] = val1
+                # Получаем адрес из регистра rs1
+                addr = self._get_operand_value(rs1, mode1)
+                # Ограничиваем адрес 16-битным диапазоном
+                addr = addr & 0xFFFF
+                # Загружаем значение из памяти по адресу
+                if 0 <= addr < len(self.memory.ram):
+                    mem_val = self.memory.ram[addr]
+                    # Ограничиваем значение 16-битным диапазоном
+                    mem_val = mem_val & 0xFFFF
+                    self.processor.registers[rd] = mem_val
+                else:
+                    raise Exception(f"LDRR: Address 0x{addr:04X} out of bounds")
             else:
                 raise Exception(f"LDRR requires 2 operands: LDRR rd, [rs1]")
             
@@ -517,26 +553,114 @@ class RISCProcessor:
         instruction = parts[0]
         operands = [p.strip() for p in parts[1:] if p.strip()] if len(parts) > 1 else []
         
-        # Сохраняем команду в регистр команд
+        # СОХРАНЯЕМ СОСТОЯНИЕ ДО выполнения команды
+        # Используем deep copy для гарантии, что данные не изменятся
+        # Важно: создаем полную копию списка регистров, преобразуя каждый элемент в int
+        registers_before = [int(r) for r in self.processor.registers] if self.processor.registers else [0] * 8
+        # Гарантируем 8 регистров
+        while len(registers_before) < 8:
+            registers_before.append(0)
+        registers_before = registers_before[:8]
+        flags_before = dict(self.processor.flags)  # Создаем новый словарь
+        pc_before = self.processor.program_counter
+        print(f"DEBUG step START: pc={pc_before}, command={instruction_line}, registers_before={registers_before}")
+        
+        # Сохраняем команду в регистр команд (команда, которая будет выполнена)
         self.processor.current_command = instruction_line
         self.processor.instruction_register_asm = instruction_line
-        # Здесь можно добавить кодирование команды в машинный код для IR
-        # Для простоты пока используем PC как код команды
+        # Устанавливаем опкод команды в IR
         if instruction in self.instructions:
             self.processor.instruction_register = self.instructions[instruction]
+        else:
+            # Если команда не найдена, устанавливаем 0
+            self.processor.instruction_register = 0
         
         # Выполняем инструкцию
         try:
+            # Сохраняем состояние регистров перед выполнением для отладки
+            print(f"DEBUG BEFORE execute_instruction: processor.registers={self.processor.registers}")
             self.execute_instruction(instruction, operands)
             self.processor.cycles += 1
+            print(f"DEBUG AFTER execute_instruction: processor.registers={self.processor.registers}")
             
-            # Сохраняем состояние в историю
-            self.memory.history.append({
-                'command': instruction_line,
-                'registers': self.processor.registers.copy(),
-                'programCounter': self.processor.program_counter,
-                'flags': self.processor.flags.copy()
-            })
+            # СОХРАНЯЕМ СОСТОЯНИЕ ПОСЛЕ выполнения команды
+            # Используем deep copy для гарантии, что данные не изменятся
+            # Важно: создаем полную копию списка регистров, преобразуя каждый элемент в int
+            # Убеждаемся, что у нас есть список регистров
+            if not self.processor.registers:
+                self.processor.registers = [0] * 8
+            # Гарантируем, что у нас есть минимум 8 регистров
+            while len(self.processor.registers) < 8:
+                self.processor.registers.append(0)
+            registers_after = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
+            flags_after = dict(self.processor.flags)  # Создаем новый словарь
+            pc_after = self.processor.program_counter
+            print(f"DEBUG step AFTER: pc={pc_after}, registers_after={registers_after}, processor.registers={self.processor.registers}")
+            
+            # Обновляем IR для следующей команды (если программа не остановлена)
+            if not self.processor.is_halted and pc_after < len(self.compiled_code):
+                next_instruction_line = self.compiled_code[pc_after]
+                next_parts = next_instruction_line.replace(',', ' ').split()
+                next_instruction = next_parts[0] if next_parts else ""
+                # Обновляем IR для следующей команды
+                self.processor.current_command = next_instruction_line
+                self.processor.instruction_register_asm = next_instruction_line
+                if next_instruction in self.instructions:
+                    self.processor.instruction_register = self.instructions[next_instruction]
+                else:
+                    self.processor.instruction_register = 0
+            
+            # Сохраняем состояние в историю с ДО и ПОСЛЕ
+            # Гарантируем, что сохраняем копии данных, а не ссылки
+            # Убеждаемся, что регистры правильно скопированы и имеют правильные значения
+            # registers_before и registers_after уже являются списками целых чисел с 8 элементами
+            # Просто создаем финальные копии с ограничением 16-битным диапазоном
+            registers_before_final = [int(r) & 0xFFFF for r in registers_before[:8]] if registers_before else [0] * 8
+            registers_after_final = [int(r) & 0xFFFF for r in registers_after[:8]] if registers_after else [0] * 8
+            # Гарантируем, что у нас есть ровно 8 регистров
+            while len(registers_before_final) < 8:
+                registers_before_final.append(0)
+            while len(registers_after_final) < 8:
+                registers_after_final.append(0)
+            registers_before_final = registers_before_final[:8]
+            registers_after_final = registers_after_final[:8]
+            
+            history_entry = {
+                'command': str(instruction_line).strip(),  # Сохраняем команду как строку
+                'instruction': str(instruction).strip(),
+                'operands': [str(op).strip() for op in operands] if operands else [],
+                'registers_before': registers_before_final,  # Гарантируем новый список с правильными значениями
+                'registers_after': registers_after_final,  # Гарантируем новый список с правильными значениями
+                'registers': registers_after_final,  # Для обратной совместимости
+                'flags_before': {
+                    'zero': bool(flags_before.get('zero', False)),
+                    'carry': bool(flags_before.get('carry', False)),
+                    'overflow': bool(flags_before.get('overflow', False)),
+                    'negative': bool(flags_before.get('negative', False))
+                },
+                'flags_after': {
+                    'zero': bool(flags_after.get('zero', False)),
+                    'carry': bool(flags_after.get('carry', False)),
+                    'overflow': bool(flags_after.get('overflow', False)),
+                    'negative': bool(flags_after.get('negative', False))
+                },
+                'flags': {
+                    'zero': bool(flags_after.get('zero', False)),
+                    'carry': bool(flags_after.get('carry', False)),
+                    'overflow': bool(flags_after.get('overflow', False)),
+                    'negative': bool(flags_after.get('negative', False))
+                },
+                'programCounter': int(pc_after),
+                'programCounter_before': int(pc_before)
+            }
+            # Отладочная информация
+            print(f"DEBUG step: command={instruction_line}")
+            print(f"  registers_before (original): {registers_before}")
+            print(f"  registers_after (original): {registers_after}")
+            print(f"  registers_before_final: {registers_before_final}")
+            print(f"  registers_after_final: {registers_after_final}")
+            print(f"  processor.registers after step: {self.processor.registers}")
+            self.memory.history.append(history_entry)
             
             return not self.processor.is_halted
             
@@ -551,26 +675,85 @@ class RISCProcessor:
         self.source_code = source_code
         self.processor.program_counter = 0
         self.processor.is_halted = False
-        self.processor.current_command = ""
-        self.processor.instruction_register_asm = ""
         self.memory.history = []
+        
+        # Сбрасываем регистры в начальное состояние (все нули)
+        self.processor.registers = [0] * 8
+        # Сбрасываем флаги
+        self.processor.flags = {
+            "zero": False,
+            "carry": False,
+            "overflow": False,
+            "negative": False
+        }
+        # Сбрасываем счетчик циклов
+        self.processor.cycles = 0
+        
+        # Инициализируем IR первой командой программы
+        if compiled_code and len(compiled_code) > 0:
+            first_instruction_line = compiled_code[0]
+            first_parts = first_instruction_line.replace(',', ' ').split()
+            first_instruction = first_parts[0] if first_parts else ""
+            self.processor.current_command = first_instruction_line
+            self.processor.instruction_register_asm = first_instruction_line
+            if first_instruction in self.instructions:
+                self.processor.instruction_register = self.instructions[first_instruction]
+            else:
+                self.processor.instruction_register = 0
+        else:
+            self.processor.current_command = ""
+            self.processor.instruction_register_asm = ""
+            self.processor.instruction_register = 0
     
     def get_state(self) -> Dict[str, Any]:
         """Получить текущее состояние процессора"""
+        # Гарантируем, что история правильно сериализуется
+        # Преобразуем каждый элемент истории, чтобы убедиться, что все значения - это базовые типы Python
+        history_serialized = []
+        for entry in self.memory.history:
+            history_entry = {}
+            for key, value in entry.items():
+                if key in ['registers_before', 'registers_after', 'registers']:
+                    # Преобразуем регистры в список целых чисел
+                    if isinstance(value, list):
+                        history_entry[key] = [int(r) & 0xFFFF for r in value]
+                    else:
+                        history_entry[key] = [0] * 8
+                elif key in ['flags_before', 'flags_after', 'flags']:
+                    # Преобразуем флаги в словарь с булевыми значениями
+                    if isinstance(value, dict):
+                        history_entry[key] = {
+                            'zero': bool(value.get('zero', False)),
+                            'carry': bool(value.get('carry', False)),
+                            'overflow': bool(value.get('overflow', False)),
+                            'negative': bool(value.get('negative', False))
+                        }
+                    else:
+                        history_entry[key] = {'zero': False, 'carry': False, 'overflow': False, 'negative': False}
+                else:
+                    # Для остальных полей просто копируем значение
+                    history_entry[key] = value
+            history_serialized.append(history_entry)
+        
         return {
             "processor": {
-                "registers": self.processor.registers.copy(),
+                "registers": [int(r) & 0xFFFF for r in self.processor.registers] if self.processor.registers else [0] * 8,
                 "program_counter": self.processor.program_counter,
                 "instruction_register": self.processor.instruction_register,
                 "instruction_register_asm": self.processor.instruction_register_asm,
-                "flags": self.processor.flags.copy(),
+                "flags": {
+                    'zero': bool(self.processor.flags.get('zero', False)),
+                    'carry': bool(self.processor.flags.get('carry', False)),
+                    'overflow': bool(self.processor.flags.get('overflow', False)),
+                    'negative': bool(self.processor.flags.get('negative', False))
+                },
                 "current_command": self.processor.current_command,
                 "is_halted": self.processor.is_halted,
                 "cycles": self.processor.cycles
             },
             "memory": {
-                "ram": self.memory.ram.copy(),
-                "history": self.memory.history.copy()
+                "ram": [int(r) & 0xFF for r in self.memory.ram] if self.memory.ram else [],
+                "history": history_serialized
             },
             "source_code": self.source_code,
             "machine_code": self.compiled_code,

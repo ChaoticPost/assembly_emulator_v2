@@ -1,1 +1,52 @@
 /* App-specific styles */
+
+/* Адаптивные стили для основного контейнера */
+@media (max-width: 640px) {
+  .min-h-screen {
+    padding: 0.75rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .min-h-screen {
+    padding: 1rem;
+  }
+}
+
+@media (min-width: 1025px) {
+  .min-h-screen {
+    padding: 1.5rem;
+  }
+}
+
+/* Адаптивность для очень маленьких экранов */
+@media (max-width: 480px) {
+  .max-w-7xl {
+    padding: 0 0.5rem;
+  }
+}
+
+/* Адаптивность для больших экранов */
+@media (min-width: 1920px) {
+  .max-w-7xl {
+    max-width: 90rem;
+  }
+}
+
+/* Адаптивность для ландшафтной ориентации на мобильных */
+@media (max-width: 1024px) and (orientation: landscape) {
+  .min-h-screen {
+    padding: 0.5rem;
+  }
+
+  .grid {
+    gap: 0.75rem;
+  }
+}
+
+/* Адаптивность для портретной ориентации на мобильных */
+@media (max-width: 768px) and (orientation: portrait) {
+  .min-h-screen {
+    padding: 0.75rem;
+  }
+}

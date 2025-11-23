@@ -12,6 +12,7 @@ export const CommandEditor: React.FC = () => {
   const [exampleCode, setExampleCode] = useState<string>('');
   const [loadingExample, setLoadingExample] = useState(false);
   const [compileSuccess, setCompileSuccess] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<number | null>(null);
 
   const handleCodeChange = (code: string) => {
     setAssemblyCode(code);
@@ -48,6 +49,18 @@ export const CommandEditor: React.FC = () => {
     }
   };
 
+  const handleTaskSelect = (taskId: number) => {
+    if (taskId === selectedTask) {
+      // Если та же задача выбрана снова, снимаем выбор
+      setSelectedTask(null);
+      setExampleCode('');
+    } else {
+      // Выбираем новую задачу и загружаем пример
+      setSelectedTask(taskId);
+      handleLoadTaskExample(taskId);
+    }
+  };
+
   const handleLoadTaskExample = (taskId: number) => {
     const examples = {
       1: `; Программа для вычисления суммы элементов массива
@@ -57,11 +70,11 @@ export const CommandEditor: React.FC = () => {
 
 ; Инициализация
 LDI R0, 0          ; R0 = 0 (аккумулятор для суммы)
-LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x1000] - размер)
-LDI R2, 0x1000     ; R2 = базовый адрес массива
+LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x0100] - размер)
+LDI R2, 0x0100     ; R2 = базовый адрес массива
 
 ; Загрузка размера массива
-LDR R3, [0x1000]   ; R3 = размер массива (из [0x1000])
+LDR R3, [0x0100]   ; R3 = размер массива (из [0x0100])
 
 ; Основной цикл
 LOOP_START:
@@ -72,7 +85,7 @@ CMP R1, R4         ; Сравнить индекс с (размер + 1)
 JZ LOOP_END        ; Если индекс == размер + 1, выйти из цикла
 
 ; Вычисляем адрес текущего элемента: базовый_адрес + индекс
-ADD R5, R2, R1     ; R5 = 0x1000 + индекс (адрес элемента)
+ADD R5, R2, R1     ; R5 = 0x0100 + индекс (адрес элемента)
 LDRR R6, [R5]      ; R6 = [R5] (значение элемента массива)
 
 ; Добавляем элемент к сумме
@@ -295,40 +308,39 @@ HALT
                 </Button>
               </div>
               <p className="text-green-800 text-sm mb-4 font-body">
-                Готовые примеры кода для задач 1 и 2. Скопируйте и вставьте в редактор.
+                Готовые примеры кода для задач 1 и 2. Выберите задание и загрузите пример.
               </p>
 
-              {/* Кнопки для выбора примера */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Button
-                  style={{ backgroundColor: '#22c55e', borderColor: '#22c55e' }}
-                  size="sm"
-                  onClick={() => handleLoadTaskExample(1)}
-                  className="flex items-center justify-center space-x-2 h-12 text-white"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                  <div className="text-left">
-                    <div className="font-semibold">Задача 1</div>
-                    <div className="text-xs opacity-90">Сумма массива</div>
-                  </div>
-                </Button>
-
-                <Button
-                  style={{ backgroundColor: '#22c55e', borderColor: '#22c55e' }}
-                  size="sm"
-                  onClick={() => handleLoadTaskExample(2)}
-                  className="flex items-center justify-center space-x-2 h-12 text-white"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                  <div className="text-left">
-                    <div className="font-semibold">Задача 2</div>
-                    <div className="text-xs opacity-90">Свертка массивов</div>
-                  </div>
-                </Button>
+              {/* Радиокнопки для выбора заданий (только одна задача) */}
+              <div className="mb-4 space-y-2">
+                <div className="task-selection-item">
+                  <input
+                    type="radio"
+                    id="task-1"
+                    name="task-selection"
+                    checked={selectedTask === 1}
+                    onChange={() => handleTaskSelect(1)}
+                    className="task-selection-radio"
+                  />
+                  <label htmlFor="task-1" className="task-selection-label">
+                    <div className="task-selection-title">Задача 1</div>
+                    <div className="task-selection-description">Сумма массива</div>
+                  </label>
+                </div>
+                <div className="task-selection-item">
+                  <input
+                    type="radio"
+                    id="task-2"
+                    name="task-selection"
+                    checked={selectedTask === 2}
+                    onChange={() => handleTaskSelect(2)}
+                    className="task-selection-radio"
+                  />
+                  <label htmlFor="task-2" className="task-selection-label">
+                    <div className="task-selection-title">Задача 2</div>
+                    <div className="task-selection-description">Свертка массивов</div>
+                  </label>
+                </div>
               </div>
             </div>
 

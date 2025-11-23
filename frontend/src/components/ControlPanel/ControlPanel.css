@@ -21,27 +21,27 @@
 }
 
 .control-card .p-card-title {
-  font-size: 1.5rem;
+  font-size: clamp(1.125rem, 2.5vw, 1.5rem);
   font-weight: 700;
   color: #166534;
-  margin-bottom: 24px;
+  margin-bottom: clamp(1rem, 2vh, 1.5rem);
   text-shadow: 0 2px 4px rgba(22, 101, 52, 0.1);
 }
 
 .control-buttons {
   display: flex;
-  gap: 16px;
+  gap: clamp(0.75rem, 1.5vw, 1rem);
   flex-wrap: wrap;
   justify-content: center;
-  padding: 8px;
+  padding: clamp(0.5rem, 1vw, 0.75rem);
 }
 
 .control-buttons .p-button {
-  min-width: 160px;
-  height: 48px;
-  border-radius: 12px;
+  min-width: clamp(120px, 20vw, 160px);
+  height: clamp(44px, 6vh, 48px);
+  border-radius: clamp(0.75rem, 1.5vw, 0.875rem);
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: clamp(0.85rem, 1.8vw, 0.95rem);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
   position: relative;
@@ -119,10 +119,16 @@
 }
 
 /* ADD: Responsive design for control buttons */
+@media (max-width: 1024px) {
+  .control-buttons {
+    gap: clamp(0.75rem, 1.5vw, 1rem);
+  }
+}
+
 @media (max-width: 768px) {
   .control-buttons {
     flex-direction: column;
-    gap: 12px;
+    gap: clamp(0.75rem, 1.5vh, 1rem);
   }
   
   .control-buttons .p-button {
@@ -132,8 +138,22 @@
 }
 
 @media (max-width: 480px) {
+  .control-card {
+    border-radius: clamp(0.75rem, 1.5vw, 1rem);
+  }
+
+  .control-card .p-card-title {
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+  }
+
+  .control-buttons {
+    padding: 0.5rem;
+    gap: 0.75rem;
+  }
+
   .control-buttons .p-button {
     height: 44px;
-    font-size: 0.9rem;
+    font-size: 0.875rem;
   }
 }

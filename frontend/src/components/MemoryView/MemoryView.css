@@ -21,10 +21,10 @@
 }
 
 .memory-card .p-card-title {
-  font-size: 1.5rem;
+  font-size: clamp(1.125rem, 2.5vw, 1.5rem);
   font-weight: 700;
   color: #166534;
-  margin-bottom: 24px;
+  margin-bottom: clamp(1rem, 2vh, 1.5rem);
   text-shadow: 0 2px 4px rgba(22, 101, 52, 0.1);
 }
 
@@ -211,20 +211,55 @@
   }
 }
 
+@media (max-width: 1024px) {
+  .memory-sections {
+    gap: clamp(1rem, 2vh, 1.5rem);
+  }
+}
+
 @media (max-width: 768px) {
   .memory-sections {
-    gap: 24px;
+    gap: clamp(1rem, 2vh, 1.25rem);
+    flex-direction: column;
+  }
+
+  .memory-section h4 {
+    font-size: clamp(0.9rem, 2vw, 1rem);
+    margin-bottom: clamp(0.75rem, 1.5vh, 1rem);
   }
   
   .history-table .p-datatable-tbody > tr > td,
   .ram-table .p-datatable-tbody > tr > td {
-    padding: 8px 12px;
-    font-size: 0.85rem;
+    padding: clamp(0.5rem, 1.5vw, 0.75rem) clamp(0.75rem, 2vw, 1rem);
+    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
   }
   
   .history-table .p-datatable-thead > tr > th,
   .ram-table .p-datatable-thead > tr > th {
-    padding: 12px 8px;
-    font-size: 0.8rem;
+    padding: clamp(0.75rem, 1.5vw, 1rem) clamp(0.5rem, 1.5vw, 0.75rem);
+    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .memory-card {
+    border-radius: clamp(0.75rem, 1.5vw, 1rem);
+  }
+
+  .memory-card .p-card-title {
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+  }
+
+  .history-table .p-datatable-tbody > tr > td,
+  .ram-table .p-datatable-tbody > tr > td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+  
+  .history-table .p-datatable-thead > tr > th,
+  .ram-table .p-datatable-thead > tr > th {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.75rem;
   }
 }

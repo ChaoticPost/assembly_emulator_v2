@@ -11,55 +11,165 @@ export const MemoryView: React.FC = () => {
     const [previousHistoryLength, setPreviousHistoryLength] = useState(0);
     const [previousRamLength, setPreviousRamLength] = useState(0);
 
-    // Функция форматирования регистров для задачи 2 (hex) или обычного (decimal)
+    // Функция форматирования регистров в hex-формате для всех задач
     const formatRegisters = (registers: number[]) => {
-        console.log('formatRegisters called with:', { registers, current_task, isTask2: current_task === 2 });
-        if (current_task === 2) {
-            // Для задачи 2 отображаем ВСЕ числа в hex-формате
-            return registers.map((item, index) => {
-                if (item < 0) {
-                    // Отрицательные числа отображаем как есть
-                    return `R${index}:${item}`;
-                }
-                return `R${index}:0x${item.toString(16).toUpperCase()}`;
-            }).join(', ');
+        if (!registers || registers.length === 0) {
+            // Если регистров нет, возвращаем начальное состояние
+            return 'R0:0x0000, R1:0x0000, R2:0x0000, R3:0x0000, R4:0x0000, R5:0x0000, R6:0x0000, R7:0x0000';
         }
-        // Для остальных задач - обычный decimal формат
-        return registers.map((item, index) => `R${index}:${item}`).join(', ');
+        
+        // Гарантируем, что у нас есть ровно 8 регистров
+        const regs = registers.slice(0, 8);
+        while (regs.length < 8) {
+            regs.push(0);
+        }
+        
+        // Для всех задач отображаем в hex-формате для единообразия
+        return regs.map((item, index) => {
+            // Обрабатываем undefined и null
+            const value = (item !== undefined && item !== null) ? item : 0;
+            
+            // Ограничиваем значение 16-битным диапазоном (0x0000 - 0xFFFF)
+            // Обрабатываем как положительные, так и отрицательные числа
+            const unsigned = (value >>> 0) & 0xFFFF;
+            const hexString = unsigned.toString(16).toUpperCase().padStart(4, '0');
+            return `R${index}:0x${hexString}`;
+        }).join(', ');
     };
 
 
     // Данные для вкладки "Исполнение"
     const executionData = memory.history.map((entry, index) => {
-        const prevRegisters = index > 0 ? memory.history[index - 1].registers || [] : [];
-        const currentRegisters = entry.registers || [];
+        // Получаем регистры ДО выполнения команды
+        // Приоритет: registers_before из текущей записи > registers_after из предыдущей > начальное состояние (все нули)
+        let prevRegisters: number[] = [];
+        
+        // Сначала пытаемся получить registers_before из текущей записи
+        if ((entry as any).registers_before && Array.isArray((entry as any).registers_before)) {
+            // Преобразуем все значения в числа и создаем копию массива
+            prevRegisters = (entry as any).registers_before.map((r: any) => {
+                const val = typeof r === 'number' ? r : (typeof r === 'string' ? parseInt(r, 10) : 0);
+                return isNaN(val) ? 0 : val;
+            });
+        } else if (index > 0) {
+            // Если registers_before нет, берем registers_after из предыдущей записи
+            const prevEntry = memory.history[index - 1];
+            if ((prevEntry as any).registers_after && Array.isArray((prevEntry as any).registers_after)) {
+                prevRegisters = (prevEntry as any).registers_after.map((r: any) => {
+                    const val = typeof r === 'number' ? r : (typeof r === 'string' ? parseInt(r, 10) : 0);
+                    return isNaN(val) ? 0 : val;
+                });
+            } else if ((prevEntry as any).registers && Array.isArray((prevEntry as any).registers)) {
+                prevRegisters = (prevEntry as any).registers.map((r: any) => {
+                    const val = typeof r === 'number' ? r : (typeof r === 'string' ? parseInt(r, 10) : 0);
+                    return isNaN(val) ? 0 : val;
+                });
+            }
+        }
+        
+        // Если регистров все еще нет, используем начальное состояние (все нули)
+        if (!prevRegisters || prevRegisters.length === 0) {
+            prevRegisters = [0, 0, 0, 0, 0, 0, 0, 0];
+        }
+        
+        // Гарантируем, что у нас есть ровно 8 регистров
+        while (prevRegisters.length < 8) {
+            prevRegisters.push(0);
+        }
+        prevRegisters = prevRegisters.slice(0, 8);
+
+        // Получаем регистры ПОСЛЕ выполнения команды
+        let currentRegisters: number[] = [];
+        
+        // Сначала пытаемся получить registers_after из текущей записи
+        if ((entry as any).registers_after && Array.isArray((entry as any).registers_after)) {
+            // Преобразуем все значения в числа и создаем копию массива
+            currentRegisters = (entry as any).registers_after.map((r: any) => {
+                const val = typeof r === 'number' ? r : (typeof r === 'string' ? parseInt(r, 10) : 0);
+                return isNaN(val) ? 0 : val;
+            });
+        } else if ((entry as any).registers && Array.isArray((entry as any).registers)) {
+            currentRegisters = (entry as any).registers.map((r: any) => {
+                const val = typeof r === 'number' ? r : (typeof r === 'string' ? parseInt(r, 10) : 0);
+                return isNaN(val) ? 0 : val;
+            });
+        }
+        
+        // Если регистров нет, используем предыдущие (команда не изменила регистры)
+        if (!currentRegisters || currentRegisters.length === 0) {
+            currentRegisters = [...prevRegisters];  // Создаем копию массива
+        }
+        
+        // Гарантируем, что у нас есть ровно 8 регистров
+        while (currentRegisters.length < 8) {
+            currentRegisters.push(0);
+        }
+        currentRegisters = currentRegisters.slice(0, 8);
+        
+        // Отладочная информация для первых нескольких записей
+        if (index < 5) {
+            console.log(`MemoryView: Step ${index + 1}`);
+            console.log(`  command: ${(entry as any).command}`);
+            console.log(`  entry.registers_before (raw):`, (entry as any).registers_before);
+            console.log(`  entry.registers_after (raw):`, (entry as any).registers_after);
+            console.log(`  prevRegisters (processed):`, prevRegisters);
+            console.log(`  currentRegisters (processed):`, currentRegisters);
+        }
+
+        // Получаем флаги ДО выполнения команды
+        let prevFlags: any = {};
+        if ((entry as any).flags_before && typeof (entry as any).flags_before === 'object') {
+            prevFlags = (entry as any).flags_before;
+        } else if (index > 0) {
+            const prevEntry = memory.history[index - 1];
+            if ((prevEntry as any).flags_after && typeof (prevEntry as any).flags_after === 'object') {
+                prevFlags = (prevEntry as any).flags_after;
+            } else if ((prevEntry as any).flags && typeof (prevEntry as any).flags === 'object') {
+                prevFlags = (prevEntry as any).flags;
+            }
+        }
+        
+        // Если флагов нет, используем начальное состояние (все false)
+        if (!prevFlags || Object.keys(prevFlags).length === 0) {
+            prevFlags = { zero: false, carry: false, overflow: false, negative: false };
+        }
+
+        // Получаем флаги ПОСЛЕ выполнения команды
+        let currentFlags: any = {};
+        if ((entry as any).flags_after && typeof (entry as any).flags_after === 'object') {
+            currentFlags = (entry as any).flags_after;
+        } else if ((entry as any).flags && typeof (entry as any).flags === 'object') {
+            currentFlags = (entry as any).flags;
+        } else {
+            // Если флагов нет, используем предыдущие (команда не изменила флаги)
+            currentFlags = { ...prevFlags };
+        }
+        
+        // Гарантируем наличие всех флагов
+        currentFlags = {
+            zero: currentFlags.zero === true,
+            carry: currentFlags.carry === true,
+            overflow: currentFlags.overflow === true,
+            negative: currentFlags.negative === true
+        };
 
         // Пытаемся извлечь текст команды из доступных полей
-        const candidates: Array<unknown> = [
-            (entry as any).instruction,
-            (entry as any).command,
-            (entry as any).opcode,
-            (entry as any).mnemonic,
-            (entry as any).line,
-            (entry as any).text,
-            (entry as any).raw
-        ];
-        const baseCmd = (candidates.find(v => typeof v === 'string' && (v as string).trim().length > 0) as string | undefined) || '';
-        const operandSrc: unknown = (entry as any).operand ?? (entry as any).operands ?? (entry as any).args ?? (entry as any).argument;
-        let operandText = '';
-        if (Array.isArray(operandSrc)) {
-            operandText = operandSrc.map(v => String(v)).join(', ');
-        } else if (operandSrc !== undefined && operandSrc !== null) {
-            operandText = String(operandSrc);
+        // Приоритет: command (полная строка команды) > instruction_register_asm > instruction
+        let commandText = '-';
+        if ((entry as any).command && typeof (entry as any).command === 'string') {
+            commandText = (entry as any).command.trim();
+        } else if ((entry as any).instruction_register_asm && typeof (entry as any).instruction_register_asm === 'string') {
+            commandText = (entry as any).instruction_register_asm.trim();
+        } else if ((entry as any).instruction && typeof (entry as any).instruction === 'string') {
+            commandText = (entry as any).instruction.trim();
         }
-        const commandText = [baseCmd, operandText].filter(Boolean).join(' ').trim();
 
         return {
             step: index + 1,
-            command: commandText || '-',
+            command: commandText,
             registersBefore: formatRegisters(prevRegisters),
             registersAfter: formatRegisters(currentRegisters),
-            flags: `Z=${entry.flags?.zero ? 1 : 0} C=${entry.flags?.carry ? 1 : 0} O=${entry.flags?.overflow ? 1 : 0} N=${entry.flags?.negative ? 1 : 0}`
+            flags: `Z=${currentFlags.zero ? 1 : 0} C=${currentFlags.carry ? 1 : 0} O=${currentFlags.overflow ? 1 : 0} N=${currentFlags.negative ? 1 : 0}`
         };
     });
 

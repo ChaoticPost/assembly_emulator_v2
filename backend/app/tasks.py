@@ -43,11 +43,11 @@ class TaskManager:
 
 ; Инициализация
 LDI R0, 0          ; R0 = 0 (аккумулятор для суммы)
-LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0] - размер)
-LDI R2, 0x1000     ; R2 = базовый адрес массива
+LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x0100] - размер)
+LDI R2, 0x0100     ; R2 = базовый адрес массива
 
 ; Загрузка размера массива
-LDR R3, [0x1000]   ; R3 = размер массива (из [0x1000])
+LDR R3, [0x0100]   ; R3 = размер массива (из [0x0100])
 
 ; Основной цикл
 LOOP_START:
@@ -58,7 +58,7 @@ CMP R1, R4         ; Сравнить индекс с (размер + 1)
 JZ LOOP_END        ; Если индекс == размер + 1, выйти из цикла
 
 ; Вычисляем адрес текущего элемента: базовый_адрес + индекс
-ADD R5, R2, R1     ; R5 = 0x1000 + индекс (адрес элемента)
+ADD R5, R2, R1     ; R5 = 0x0100 + индекс (адрес элемента)
 LDRR R6, [R5]      ; R6 = [R5] (значение элемента массива)
 
 ; Добавляем элемент к сумме
@@ -196,15 +196,15 @@ HALT
             
             print(f"Task 1 data: size={size}, elements={elements}")
             
-            # Загружаем массив в память начиная с 0x1000
-            # [0x1000] = размер массива
-            processor.memory.ram[0x1000] = size
-            print(f"Stored size=0x{size:04X} at address 0x1000")
+            # Загружаем массив в память начиная с 0x0100
+            # [0x0100] = размер массива
+            processor.memory.ram[0x0100] = size
+            print(f"Stored size=0x{size:04X} at address 0x0100")
             
-            # [0x1001..0x1000+size] = элементы массива
+            # [0x0101..0x0100+size] = элементы массива
             for i, value in enumerate(elements):
-                processor.memory.ram[0x1000 + i + 1] = value
-                print(f"Stored element[{i}] = 0x{value:04X} at address 0x{0x1000 + i + 1:04X}")
+                processor.memory.ram[0x0100 + i + 1] = value
+                print(f"Stored element[{i}] = 0x{value:04X} at address 0x{0x0100 + i + 1:04X}")
             
         elif task_id == 2:  # Свертка массивов
             # Формат: [size_a, a1..aN, size_b, b1..bM]

@@ -47,6 +47,7 @@ export interface ApiResponse<T> {
 
 export interface CompileRequest {
     source_code: string;
+    task_id?: number;  // ID задачи для автоматической загрузки данных
 }
 
 export interface ExecuteRequest {

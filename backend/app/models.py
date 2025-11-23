@@ -59,6 +59,7 @@ class TaskInfo(BaseModel):
 class CompileRequest(BaseModel):
     """Запрос на компиляцию кода"""
     source_code: str
+    task_id: Optional[int] = None  # ID задачи для автоматической загрузки данных
 
 class LoadTaskRequest(BaseModel):
     """Запрос на загрузку данных задачи"""

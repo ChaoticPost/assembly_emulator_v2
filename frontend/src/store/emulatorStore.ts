@@ -158,17 +158,78 @@ export const useEmulatorStore = create<{
     compileCode: async (code: string) => {
         try {
             set({ loading: true, error: null });
-            const result = await apiService.compileCode(code);
+            
+            // Если выбрана задача, автоматически загружаем данные задачи перед компиляцией
+            const currentState = get();
+            const current_task = currentState.current_task;
+            const state_current_task = currentState.state.current_task;
+            
+            console.log('=== COMPILE CODE START ===');
+            console.log('current_task from store:', current_task);
+            console.log('state.current_task:', state_current_task);
+            console.log('memory.ram.length:', currentState.state.memory.ram.length);
+            console.log('memory.ram[0x0100]:', currentState.state.memory.ram[0x0100]);
+            
+            let taskState: EmulatorState | null = null;
+            
+            // Используем current_task из store или из state
+            const taskId = current_task || state_current_task;
+            
+            console.log('[COMPILE] taskId для передачи в компиляцию:', taskId);
+            console.log('[COMPILE] current_task from store:', current_task);
+            console.log('[COMPILE] state.current_task:', state_current_task);
+            
+            // НЕ загружаем задачу на фронтенде - пусть бэкенд сделает это
+            // Это гарантирует, что данные загружаются в правильном порядке
+            
+            console.log('[COMPILE] Отправляем запрос на компиляцию с task_id:', taskId);
+            // Передаем task_id в запрос компиляции, чтобы бэкенд загрузил данные задачи
+            const result = await apiService.compileCode(code, taskId || undefined);
+            console.log('[COMPILE] Результат компиляции:', result);
+            
             if (result.success) {
-                set((state) => ({
-                    state: {
-                        ...state.state,
-                        source_code: code,
-                        machine_code: result.machine_code
-                    },
-                    loading: false
-                }));
+                // Если бэкенд вернул состояние, используем его (включая память)
+                if ((result as any).state) {
+                    const backendState = (result as any).state;
+                    console.log('[COMPILE] Получено состояние с бэкенда после компиляции');
+                    console.log('[COMPILE] memory.ram.length:', backendState.memory?.ram?.length);
+                    console.log('[COMPILE] memory.ram[0x0100]:', backendState.memory?.ram?.[0x0100] ?? 'не найдено');
+                    set({
+                        state: {
+                            ...backendState,
+                            source_code: code,
+                            machine_code: result.machine_code,
+                            current_task: taskId || backendState.current_task
+                        },
+                        current_task: taskId || backendState.current_task,
+                        loading: false
+                    });
+                } else {
+                    // Если состояния нет, используем локальное
+                    console.log('[COMPILE] Состояние с бэкенда не получено, используем локальное');
+                    set((state) => {
+                        const newState = taskState ? {
+                            ...taskState,
+                            source_code: code,
+                            machine_code: result.machine_code,
+                            current_task: taskId || taskState.current_task
+                        } : {
+                            ...state.state,
+                            source_code: code,
+                            machine_code: result.machine_code
+                        };
+                        console.log('[COMPILE] Новое состояние:', newState);
+                        console.log('[COMPILE] memory.ram[0x0100]:', newState.memory.ram[0x0100]);
+                        return {
+                            state: newState,
+                            current_task: taskId || newState.current_task,
+                            loading: false
+                        };
+                    });
+                }
+                console.log('=== COMPILE CODE END ===');
             } else {
+                console.error('[COMPILE] Ошибка компиляции:', result);
                 set({ error: 'Ошибка компиляции', loading: false });
             }
         } catch (error) {

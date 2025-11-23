@@ -64,10 +64,66 @@ async def compile_code(request: CompileRequest):
         raise HTTPException(status_code=500, detail="Emulator not initialized")
     
     try:
+        print(f"DEBUG compile: Получен запрос на компиляцию, task_id={request.task_id}, source_code length={len(request.source_code) if request.source_code else 0}")
+        
+        # Если указан task_id, загружаем данные задачи ПЕРЕД компиляцией
+        if request.task_id:
+            print(f"DEBUG compile: Загружаем данные задачи {request.task_id} перед компиляцией")
+            # Сохраняем текущую память (если есть)
+            ram_before_task = list(emulator.processor.memory.ram) if emulator.processor.memory.ram else []
+            print(f"DEBUG compile: Память ДО load_task: length={len(ram_before_task)}, ram[0x0100]={ram_before_task[0x0100] if 0x0100 < len(ram_before_task) else 'OUT_OF_BOUNDS'}")
+            
+            task_result = emulator.load_task(request.task_id)
+            if task_result["success"]:
+                print(f"DEBUG compile: Данные задачи {request.task_id} загружены")
+                print(f"DEBUG compile: memory.ram[0x0100]={emulator.processor.memory.ram[0x0100] if 0x0100 < len(emulator.processor.memory.ram) else 'OUT_OF_BOUNDS'}")
+                print(f"DEBUG compile: memory.ram.length={len(emulator.processor.memory.ram)}")
+            else:
+                print(f"WARNING compile: Не удалось загрузить данные задачи {request.task_id}: {task_result.get('error')}")
+        else:
+            print(f"DEBUG compile: task_id не указан, пропускаем загрузку данных задачи")
+        
+        # Сохраняем память перед компиляцией (чтобы не потерять данные задачи)
+        saved_ram = list(emulator.processor.memory.ram) if emulator.processor.memory.ram else []
+        saved_ram_size = len(saved_ram) if saved_ram else emulator.processor.memory_size
+        print(f"DEBUG compile START: memory_size={saved_ram_size}, ram[0x0100]={saved_ram[0x0100] if 0x0100 < len(saved_ram) else 'OUT_OF_BOUNDS'}")
+        
         result = emulator.compile_code(request.source_code)
         if result["success"]:
+            # Сохраняем память перед load_program
+            ram_before_load = list(emulator.processor.memory.ram) if emulator.processor.memory.ram else []
+            
+            # Сохраняем память ПЕРЕД load_program (данные задачи)
+            ram_before_load_program = list(emulator.processor.memory.ram) if emulator.processor.memory.ram else []
+            print(f"DEBUG compile: Память ПЕРЕД load_program: length={len(ram_before_load_program)}, ram[0x0100]={ram_before_load_program[0x0100] if 0x0100 < len(ram_before_load_program) else 'OUT_OF_BOUNDS'}")
+            
             # Загружаем программу в эмулятор для пошагового выполнения
+            # ВАЖНО: load_program НЕ сбрасывает память, только регистры и историю
             emulator.load_program(request.source_code)
+            
+            # Проверяем память ПОСЛЕ load_program
+            ram_after_load_program = list(emulator.processor.memory.ram) if emulator.processor.memory.ram else []
+            print(f"DEBUG compile: Память ПОСЛЕ load_program: length={len(ram_after_load_program)}, ram[0x0100]={ram_after_load_program[0x0100] if 0x0100 < len(ram_after_load_program) else 'OUT_OF_BOUNDS'}")
+            
+            # Восстанавливаем память (данные задачи должны сохраниться)
+            # Используем память, которая была ДО load_program (данные задачи)
+            if ram_before_load_program and len(ram_before_load_program) > 0:
+                emulator.processor.memory.ram = ram_before_load_program
+                print(f"DEBUG compile: Memory restored after load_program, size={len(emulator.processor.memory.ram)}, ram[0x0100]={emulator.processor.memory.ram[0x0100] if 0x0100 < len(emulator.processor.memory.ram) else 'OUT_OF_BOUNDS'}")
+            elif saved_ram and len(saved_ram) > 0:
+                # Если ram_before_load_program пустая, используем saved_ram
+                if len(saved_ram) < saved_ram_size:
+                    saved_ram.extend([0] * (saved_ram_size - len(saved_ram)))
+                emulator.processor.memory.ram = saved_ram
+                print(f"DEBUG compile: Memory restored from saved_ram, size={len(emulator.processor.memory.ram)}, ram[0x0100]={emulator.processor.memory.ram[0x0100] if 0x0100 < len(emulator.processor.memory.ram) else 'OUT_OF_BOUNDS'}")
+            else:
+                print(f"WARNING compile: No RAM to restore!")
+        
+        # Возвращаем результат с текущим состоянием (включая память)
+        if result["success"]:
+            state = emulator.get_state()
+            result["state"] = state
+            print(f"DEBUG compile: Returning state with memory.ram[0x0100]={state['memory']['ram'][0x0100] if 0x0100 < len(state['memory']['ram']) else 'OUT_OF_BOUNDS'}")
         
         return result
     except Exception as e:

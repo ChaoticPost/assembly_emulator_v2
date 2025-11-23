@@ -232,6 +232,30 @@ class RISCProcessor:
         else:
             self.processor.flags["carry"] = False
     
+    def _update_register(self, rd: int, value: int):
+        """Обновить регистр rd значением value (создает новый список для Pydantic)"""
+        # Инициализируем регистры, если их нет
+        if not self.processor.registers:
+            self.processor.registers = [0] * 8
+        
+        # Создаем полностью новый список регистров (Pydantic требует нового объекта)
+        new_registers = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
+        
+        # Гарантируем, что у нас есть ровно 8 регистров
+        while len(new_registers) < 8:
+            new_registers.append(0)
+        new_registers = new_registers[:8]
+        
+        # Обновляем нужный регистр
+        if 0 <= rd < 8:
+            new_registers[rd] = int(value) & 0xFFFF
+        else:
+            raise ValueError(f"Invalid register index: {rd} (must be 0-7)")
+        
+        # Обновляем регистры в процессоре (создаем новый список для Pydantic)
+        # Важно: создаем полностью новый список, чтобы Pydantic увидел изменение
+        self.processor.registers = new_registers
+    
     def execute_instruction(self, instruction: str, operands: List[str] = None):
         """Выполнение одной инструкции"""
         instruction = instruction.upper().strip()
@@ -251,9 +275,10 @@ class RISCProcessor:
                 val2 = self._get_operand_value(rs2, mode2)
                 result = val1 + val2
                 # Ограничиваем результат 16-битным значением (0x0000 - 0xFFFF)
-                result = result & 0xFFFF
+                result = int(result) & 0xFFFF
                 self.update_flags(result, "add")
-                self.processor.registers[rd] = result
+                self._update_register(rd, result)
+                print(f"DEBUG ADD: rd={rd}, result={result}, registers[{rd}]={self.processor.registers[rd]}, all_registers={self.processor.registers}")
             else:
                 raise Exception(f"ADD requires 3 operands: ADD rd, rs1, rs2")
         
@@ -269,7 +294,7 @@ class RISCProcessor:
                 # Ограничиваем результат 16-битным значением
                 result = result & 0xFFFF
                 self.update_flags(result, "sub")
-                self.processor.registers[rd] = result
+                self._update_register(rd, result)
             else:
                 raise Exception(f"SUB requires 3 operands: SUB rd, rs1, rs2")
         
@@ -285,7 +310,7 @@ class RISCProcessor:
                 # Ограничиваем результат 16-битным значением
                 result = result & 0xFFFF
                 self.update_flags(result)
-                self.processor.registers[rd] = result
+                self._update_register(rd, result)
             else:
                 raise Exception(f"MUL requires 3 operands: MUL rd, rs1, rs2")
         
@@ -303,7 +328,7 @@ class RISCProcessor:
                 # Ограничиваем результат 16-битным значением
                 result = result & 0xFFFF
                 self.update_flags(result)
-                self.processor.registers[rd] = result
+                self._update_register(rd, result)
             else:
                 raise Exception(f"DIV requires 3 operands: DIV rd, rs1, rs2")
             
@@ -319,7 +344,7 @@ class RISCProcessor:
                 # Ограничиваем результат 16-битным значением
                 result = result & 0xFFFF
                 self.update_flags(result)
-                self.processor.registers[rd] = result
+                self._update_register(rd, result)
             else:
                 raise Exception(f"AND requires 3 operands: AND rd, rs1, rs2")
             
@@ -335,7 +360,7 @@ class RISCProcessor:
                 # Ограничиваем результат 16-битным значением
                 result = result & 0xFFFF
                 self.update_flags(result)
-                self.processor.registers[rd] = result
+                self._update_register(rd, result)
             else:
                 raise Exception(f"OR requires 3 operands: OR rd, rs1, rs2")
             
@@ -351,7 +376,7 @@ class RISCProcessor:
                 # Ограничиваем результат 16-битным значением
                 result = result & 0xFFFF
                 self.update_flags(result)
-                self.processor.registers[rd] = result
+                self._update_register(rd, result)
             else:
                 raise Exception(f"XOR requires 3 operands: XOR rd, rs1, rs2")
             
@@ -365,7 +390,7 @@ class RISCProcessor:
                 # Ограничиваем результат 16-битным значением
                 result = result & 0xFFFF
                 self.update_flags(result)
-                self.processor.registers[rd] = result
+                self._update_register(rd, result)
             else:
                 raise Exception(f"NOT requires 2 operands: NOT rd, rs1")
             
@@ -377,7 +402,7 @@ class RISCProcessor:
                 val1 = self._get_operand_value(rs1, mode1)
                 # Ограничиваем значение 16-битным диапазоном
                 val1 = val1 & 0xFFFF
-                self.processor.registers[rd] = val1
+                self._update_register(rd, val1)
             else:
                 raise Exception(f"MOV requires 2 operands: MOV rd, rs1")
             
@@ -388,12 +413,7 @@ class RISCProcessor:
                 imm, _ = self._parse_operand(operands[1])
                 # Ограничиваем значение 16-битным диапазоном (0x0000 - 0xFFFF)
                 imm = int(imm) & 0xFFFF
-                # Убеждаемся, что регистр существует
-                if rd < 0 or rd >= len(self.processor.registers):
-                    # Расширяем массив регистров, если нужно
-                    while len(self.processor.registers) <= rd:
-                        self.processor.registers.append(0)
-                self.processor.registers[rd] = imm
+                self._update_register(rd, imm)
                 print(f"DEBUG LDI: rd={rd}, imm={imm}, registers[{rd}]={self.processor.registers[rd]}, all_registers={self.processor.registers}")
             else:
                 raise Exception(f"LDI requires 2 operands: LDI rd, imm")
@@ -403,11 +423,29 @@ class RISCProcessor:
             if len(operands) >= 2:
                 rd, _ = self._parse_operand(operands[0])
                 addr, mode1 = self._parse_operand(operands[1])
-                # Для DIRECT режима _get_operand_value уже возвращает значение из памяти
-                mem_val = self._get_operand_value(addr, mode1)
-                # Ограничиваем значение 16-битным диапазоном
-                mem_val = mem_val & 0xFFFF
-                self.processor.registers[rd] = mem_val
+                
+                # Проверяем, что режим адресации правильный
+                if mode1 != AddressingMode.DIRECT:
+                    raise Exception(f"LDR requires DIRECT addressing mode, got {mode1}")
+                
+                # Проверяем, что адрес в пределах памяти
+                if addr < 0:
+                    print(f"ERROR LDR: Negative address 0x{addr:04X}")
+                    mem_val = 0
+                elif addr >= len(self.memory.ram):
+                    print(f"ERROR LDR: Address 0x{addr:04X} out of bounds (memory_size=0x{len(self.memory.ram):04X})")
+                    print(f"  Memory size: {len(self.memory.ram)}, required: >= 0x{addr + 1:04X}")
+                    mem_val = 0
+                else:
+                    # Читаем значение из памяти напрямую
+                    raw_val = self.memory.ram[addr]
+                    mem_val = int(raw_val) & 0xFFFF
+                    print(f"DEBUG LDR: rd={rd}, addr=0x{addr:04X}, raw_value={raw_val}, memory[0x{addr:04X}]=0x{mem_val:04X} (decimal {mem_val}), mode={mode1}")
+                    print(f"  Memory check: memory.ram exists={self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
+                
+                # Обновляем регистр
+                self._update_register(rd, mem_val)
+                print(f"DEBUG LDR AFTER: rd={rd}, registers[{rd}]=0x{self.processor.registers[rd]:04X} (decimal {self.processor.registers[rd]}), all_registers={self.processor.registers}")
             else:
                 raise Exception(f"LDR requires 2 operands: LDR rd, [address]")
             
@@ -424,8 +462,9 @@ class RISCProcessor:
                 if 0 <= addr < len(self.memory.ram):
                     mem_val = self.memory.ram[addr]
                     # Ограничиваем значение 16-битным диапазоном
-                    mem_val = mem_val & 0xFFFF
-                    self.processor.registers[rd] = mem_val
+                    mem_val = int(mem_val) & 0xFFFF
+                    self._update_register(rd, mem_val)
+                    print(f"DEBUG LDRR: rd={rd}, addr=0x{addr:04X}, mem_val={mem_val}, registers[{rd}]={self.processor.registers[rd]}, all_registers={self.processor.registers}")
                 else:
                     raise Exception(f"LDRR: Address 0x{addr:04X} out of bounds")
             else:
@@ -535,7 +574,7 @@ class RISCProcessor:
             pass
         
         # Увеличиваем счетчик команд, если не было перехода
-            self.processor.program_counter += 1
+        self.processor.program_counter += 1
     
     def step(self) -> bool:
         """Выполнить один шаг программы"""
@@ -556,11 +595,14 @@ class RISCProcessor:
         # СОХРАНЯЕМ СОСТОЯНИЕ ДО выполнения команды
         # Используем deep copy для гарантии, что данные не изменятся
         # Важно: создаем полную копию списка регистров, преобразуя каждый элемент в int
-        registers_before = [int(r) for r in self.processor.registers] if self.processor.registers else [0] * 8
-        # Гарантируем 8 регистров
-        while len(registers_before) < 8:
-            registers_before.append(0)
-        registers_before = registers_before[:8]
+        # Убеждаемся, что у нас есть список регистров
+        if not self.processor.registers:
+            self.processor.registers = [0] * 8
+        # Гарантируем, что у нас есть минимум 8 регистров
+        while len(self.processor.registers) < 8:
+            self.processor.registers.append(0)
+        # Создаем копию регистров с преобразованием в int и ограничением 16-битным диапазоном
+        registers_before = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
         flags_before = dict(self.processor.flags)  # Создаем новый словарь
         pc_before = self.processor.program_counter
         print(f"DEBUG step START: pc={pc_before}, command={instruction_line}, registers_before={registers_before}")
@@ -715,8 +757,13 @@ class RISCProcessor:
             for key, value in entry.items():
                 if key in ['registers_before', 'registers_after', 'registers']:
                     # Преобразуем регистры в список целых чисел
-                    if isinstance(value, list):
-                        history_entry[key] = [int(r) & 0xFFFF for r in value]
+                    if isinstance(value, list) and len(value) > 0:
+                        # Преобразуем каждый элемент в int и ограничиваем 16-битным диапазоном
+                        regs = [int(r) & 0xFFFF for r in value]
+                        # Гарантируем, что у нас есть ровно 8 регистров
+                        while len(regs) < 8:
+                            regs.append(0)
+                        history_entry[key] = regs[:8]
                     else:
                         history_entry[key] = [0] * 8
                 elif key in ['flags_before', 'flags_after', 'flags']:
@@ -752,7 +799,7 @@ class RISCProcessor:
                 "cycles": self.processor.cycles
             },
             "memory": {
-                "ram": [int(r) & 0xFF for r in self.memory.ram] if self.memory.ram else [],
+                "ram": [int(r) & 0xFFFF for r in self.memory.ram] if self.memory.ram else [],  # 16-битные значения
                 "history": history_serialized
             },
             "source_code": self.source_code,

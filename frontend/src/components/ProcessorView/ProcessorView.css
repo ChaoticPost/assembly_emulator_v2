@@ -66,6 +66,7 @@
   transition: grid-template-columns 0.3s ease, gap 0.3s ease;
   box-sizing: border-box;
   min-width: 0;
+  grid-auto-rows: min-content;
 }
 
 /* Секции процессора */
@@ -241,6 +242,20 @@
 
 .cycles-value {
   aspect-ratio: 2 / 1;
+  font-size: clamp(1.25rem, 3vw, 2rem) !important;
+  padding: clamp(0.5rem, 1vw, 0.75rem) !important;
+  min-height: clamp(2rem, 4vh, 3rem) !important;
+}
+
+/* Уменьшаем размер блока "Циклы выполнения" */
+.flags-section .section-content:last-child {
+  padding: clamp(0.75rem, 1.2vw, 1rem) !important;
+  min-height: fit-content;
+}
+
+.flags-section .section-content:last-child .section-label {
+  margin-bottom: clamp(0.5rem, 0.8vh, 0.75rem) !important;
+  font-size: clamp(0.7rem, 1.3vw, 0.9rem) !important;
 }
 
 /* Регистр команд (IR) */
@@ -416,6 +431,36 @@
 .task-result-desc {
   font-size: clamp(0.75rem, 1.5vw, 1rem);
   color: #6b7280;
+}
+
+.task-result-success {
+  margin-top: clamp(0.5rem, 1vh, 1rem);
+  font-size: clamp(0.875rem, 1.5vw, 1.125rem);
+  font-weight: 600;
+  color: #15803d;
+  padding: clamp(0.5rem, 1vw, 0.75rem);
+  background: rgba(220, 252, 231, 0.8);
+  border-radius: clamp(0.25rem, 0.5vw, 0.5rem);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Секция итогового результата */
+.result-section {
+  justify-content: flex-start;
+  grid-column: 1 / -1; /* Занимает всю ширину сетки */
+  width: 100%;
+}
+
+.result-section .section-content {
+  background: linear-gradient(135deg, rgba(220, 252, 231, 0.95), rgba(187, 247, 208, 0.95));
+  border: 2px solid rgba(34, 197, 94, 0.3);
+}
+
+.result-section .section-content:hover {
+  background: linear-gradient(135deg, rgba(187, 247, 208, 0.98), rgba(134, 239, 172, 0.98));
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.15);
 }
 
 /* Анимации */

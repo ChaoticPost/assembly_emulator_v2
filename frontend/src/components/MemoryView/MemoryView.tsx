@@ -45,24 +45,57 @@ export const MemoryView: React.FC = () => {
         let prevRegisters: number[] = [];
         
         // Сначала пытаемся получить registers_before из текущей записи
-        if ((entry as any).registers_before && Array.isArray((entry as any).registers_before)) {
+        if ((entry as any).registers_before && Array.isArray((entry as any).registers_before) && (entry as any).registers_before.length > 0) {
             // Преобразуем все значения в числа и создаем копию массива
             prevRegisters = (entry as any).registers_before.map((r: any) => {
-                const val = typeof r === 'number' ? r : (typeof r === 'string' ? parseInt(r, 10) : 0);
-                return isNaN(val) ? 0 : val;
+                // Обрабатываем числа и строки
+                let val: number;
+                if (typeof r === 'number') {
+                    val = r;
+                } else if (typeof r === 'string') {
+                    // Пытаемся распарсить как число (десятичное или hex)
+                    val = r.startsWith('0x') || r.startsWith('0X') ? parseInt(r, 16) : parseInt(r, 10);
+                } else {
+                    val = 0;
+                }
+                // Ограничиваем 16-битным диапазоном и проверяем на NaN
+                val = isNaN(val) ? 0 : (val & 0xFFFF);
+                return val;
             });
         } else if (index > 0) {
             // Если registers_before нет, берем registers_after из предыдущей записи
             const prevEntry = memory.history[index - 1];
-            if ((prevEntry as any).registers_after && Array.isArray((prevEntry as any).registers_after)) {
+            if ((prevEntry as any).registers_after && Array.isArray((prevEntry as any).registers_after) && (prevEntry as any).registers_after.length > 0) {
                 prevRegisters = (prevEntry as any).registers_after.map((r: any) => {
-                    const val = typeof r === 'number' ? r : (typeof r === 'string' ? parseInt(r, 10) : 0);
-                    return isNaN(val) ? 0 : val;
+                    // Обрабатываем числа и строки
+                    let val: number;
+                    if (typeof r === 'number') {
+                        val = r;
+                    } else if (typeof r === 'string') {
+                        // Пытаемся распарсить как число (десятичное или hex)
+                        val = r.startsWith('0x') || r.startsWith('0X') ? parseInt(r, 16) : parseInt(r, 10);
+                    } else {
+                        val = 0;
+                    }
+                    // Ограничиваем 16-битным диапазоном и проверяем на NaN
+                    val = isNaN(val) ? 0 : (val & 0xFFFF);
+                    return val;
                 });
-            } else if ((prevEntry as any).registers && Array.isArray((prevEntry as any).registers)) {
+            } else if ((prevEntry as any).registers && Array.isArray((prevEntry as any).registers) && (prevEntry as any).registers.length > 0) {
                 prevRegisters = (prevEntry as any).registers.map((r: any) => {
-                    const val = typeof r === 'number' ? r : (typeof r === 'string' ? parseInt(r, 10) : 0);
-                    return isNaN(val) ? 0 : val;
+                    // Обрабатываем числа и строки
+                    let val: number;
+                    if (typeof r === 'number') {
+                        val = r;
+                    } else if (typeof r === 'string') {
+                        // Пытаемся распарсить как число (десятичное или hex)
+                        val = r.startsWith('0x') || r.startsWith('0X') ? parseInt(r, 16) : parseInt(r, 10);
+                    } else {
+                        val = 0;
+                    }
+                    // Ограничиваем 16-битным диапазоном и проверяем на NaN
+                    val = isNaN(val) ? 0 : (val & 0xFFFF);
+                    return val;
                 });
             }
         }
@@ -82,16 +115,38 @@ export const MemoryView: React.FC = () => {
         let currentRegisters: number[] = [];
         
         // Сначала пытаемся получить registers_after из текущей записи
-        if ((entry as any).registers_after && Array.isArray((entry as any).registers_after)) {
+        if ((entry as any).registers_after && Array.isArray((entry as any).registers_after) && (entry as any).registers_after.length > 0) {
             // Преобразуем все значения в числа и создаем копию массива
             currentRegisters = (entry as any).registers_after.map((r: any) => {
-                const val = typeof r === 'number' ? r : (typeof r === 'string' ? parseInt(r, 10) : 0);
-                return isNaN(val) ? 0 : val;
+                // Обрабатываем числа и строки
+                let val: number;
+                if (typeof r === 'number') {
+                    val = r;
+                } else if (typeof r === 'string') {
+                    // Пытаемся распарсить как число (десятичное или hex)
+                    val = r.startsWith('0x') || r.startsWith('0X') ? parseInt(r, 16) : parseInt(r, 10);
+                } else {
+                    val = 0;
+                }
+                // Ограничиваем 16-битным диапазоном и проверяем на NaN
+                val = isNaN(val) ? 0 : (val & 0xFFFF);
+                return val;
             });
-        } else if ((entry as any).registers && Array.isArray((entry as any).registers)) {
+        } else if ((entry as any).registers && Array.isArray((entry as any).registers) && (entry as any).registers.length > 0) {
             currentRegisters = (entry as any).registers.map((r: any) => {
-                const val = typeof r === 'number' ? r : (typeof r === 'string' ? parseInt(r, 10) : 0);
-                return isNaN(val) ? 0 : val;
+                // Обрабатываем числа и строки
+                let val: number;
+                if (typeof r === 'number') {
+                    val = r;
+                } else if (typeof r === 'string') {
+                    // Пытаемся распарсить как число (десятичное или hex)
+                    val = r.startsWith('0x') || r.startsWith('0X') ? parseInt(r, 16) : parseInt(r, 10);
+                } else {
+                    val = 0;
+                }
+                // Ограничиваем 16-битным диапазоном и проверяем на NaN
+                val = isNaN(val) ? 0 : (val & 0xFFFF);
+                return val;
             });
         }
         
@@ -107,13 +162,15 @@ export const MemoryView: React.FC = () => {
         currentRegisters = currentRegisters.slice(0, 8);
         
         // Отладочная информация для первых нескольких записей
-        if (index < 5) {
+        if (index < 10) {
             console.log(`MemoryView: Step ${index + 1}`);
             console.log(`  command: ${(entry as any).command}`);
             console.log(`  entry.registers_before (raw):`, (entry as any).registers_before);
             console.log(`  entry.registers_after (raw):`, (entry as any).registers_after);
+            console.log(`  entry.registers (raw):`, (entry as any).registers);
             console.log(`  prevRegisters (processed):`, prevRegisters);
             console.log(`  currentRegisters (processed):`, currentRegisters);
+            console.log(`  entry (full):`, entry);
         }
 
         // Получаем флаги ДО выполнения команды

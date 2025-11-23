@@ -36,11 +36,15 @@ class ApiService {
   }
 
   // Компилировать код
-  async compileCode(sourceCode: string): Promise<{ success: boolean; machine_code: string[]; labels: any }> {
-    console.log('Отправляем запрос на компиляцию:', { source_code: sourceCode });
+  async compileCode(sourceCode: string, taskId?: number): Promise<{ success: boolean; machine_code: string[]; labels: any; state?: any }> {
+    const requestBody = { source_code: sourceCode };
+    if (taskId !== undefined && taskId !== null) {
+      (requestBody as any).task_id = taskId;
+    }
+    console.log('Отправляем запрос на компиляцию:', requestBody);
     return this.request('/api/compile', {
       method: 'POST',
-      body: JSON.stringify({ source_code: sourceCode }),
+      body: JSON.stringify(requestBody),
     });
   }
 

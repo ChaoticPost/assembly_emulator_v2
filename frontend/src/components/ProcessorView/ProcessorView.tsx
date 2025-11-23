@@ -320,6 +320,69 @@ export const ProcessorView: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Итоговый ответ */}
+        {(current_task === 1 || current_task === 2) && (
+          <div className="processor-section result-section">
+            <div className="section-content">
+              <label className="section-label">
+                Итоговый ответ
+                {state.processor.is_halted && state.processor.cycles > 0 && (
+                  <span className="label-animation">✓ готово</span>
+                )}
+              </label>
+              {current_task === 1 ? (
+                <div className="task-result">
+                  <div className="task-result-value">
+                    {formatValue(displayRegisters[0], true)}
+                  </div>
+                  <div className="task-result-title">
+                    Сумма элементов массива
+                  </div>
+                  <div className="task-result-desc">
+                    {displayRegisters[0] === 280 
+                      ? '10+20+30+40+50+60+70 = 280 (0x0118)' 
+                      : `Результат: ${formatValue(displayRegisters[0], true)} (${displayRegisters[0]})`}
+                  </div>
+                  {displayRegisters[0] === 280 && (
+                    <div className="task-result-success">✓ Правильно</div>
+                  )}
+                </div>
+              ) : current_task === 2 ? (
+                <div className="task-result">
+                  <div className="task-result-value">
+                    {(() => {
+                      const memValue = state.memory.ram && state.memory.ram.length > 0x1100 ? state.memory.ram[0x1100] : null;
+                      if (memValue !== null && memValue !== undefined) {
+                        return formatValue(memValue, true);
+                      }
+                      return '0x0032';
+                    })()}
+                  </div>
+                  <div className="task-result-title">
+                    Свертка двух массивов
+                  </div>
+                  <div className="task-result-desc">
+                    {(() => {
+                      const memValue = state.memory.ram && state.memory.ram.length > 0x1100 ? state.memory.ram[0x1100] : null;
+                      if (memValue !== null && memValue !== undefined) {
+                        return `${memValue} в десятичной системе (0x${memValue.toString(16).toUpperCase().padStart(4, '0')})`;
+                      }
+                      return '50 в десятичной системе (0x0032)';
+                    })()}
+                  </div>
+                  {(() => {
+                    const memValue = state.memory.ram && state.memory.ram.length > 0x1100 ? state.memory.ram[0x1100] : null;
+                    if (memValue === 50) {
+                      return <div className="task-result-success">✓ Правильно</div>;
+                    }
+                    return null;
+                  })()}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

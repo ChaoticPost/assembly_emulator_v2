@@ -3,6 +3,7 @@
 """
 from typing import List, Dict, Any
 from .processor import RISCProcessor
+from .models import MemoryState
 
 class TaskManager:
     """Менеджер задач для эмулятора"""
@@ -182,6 +183,9 @@ HALT
     def setup_task_data(self, processor: RISCProcessor, task_id: int):
         """Настроить данные для задачи в процессоре"""
         print(f"=== setup_task_data called for task {task_id} ===")
+        print(f"DEBUG setup_task_data: processor.memory.ram exists={processor.memory.ram is not None}")
+        print(f"DEBUG setup_task_data: processor.memory.ram length={len(processor.memory.ram) if processor.memory.ram else 0}")
+        
         task = self.get_task(task_id)
         if not task:
             raise ValueError(f"Task {task_id} not found")
@@ -196,15 +200,68 @@ HALT
             
             print(f"Task 1 data: size={size}, elements={elements}")
             
+            # Убеждаемся, что память инициализирована
+            if not processor.memory.ram:
+                print(f"WARNING: memory.ram is None or empty, initializing")
+                processor.memory.ram = [0] * processor.memory_size
+            
+            # Убеждаемся, что память достаточно большая
+            required_size = 0x0100 + len(elements) + 2
+            current_size = len(processor.memory.ram) if processor.memory.ram else 0
+            if current_size < required_size:
+                print(f"WARNING: Memory too small ({current_size}), expanding to {required_size}")
+                # Создаем новый список памяти с расширением
+                new_ram = list(processor.memory.ram) if processor.memory.ram else [0] * processor.memory_size
+                new_ram.extend([0] * (required_size - len(new_ram)))
+                processor.memory.ram = new_ram
+            
+            # Создаем новый список памяти для гарантии обновления (Pydantic требует нового объекта)
+            new_ram = list(processor.memory.ram) if processor.memory.ram else [0] * max(required_size, processor.memory_size)
+            
+            # Гарантируем достаточный размер
+            while len(new_ram) < required_size:
+                new_ram.append(0)
+            
             # Загружаем массив в память начиная с 0x0100
             # [0x0100] = размер массива
-            processor.memory.ram[0x0100] = size
-            print(f"Stored size=0x{size:04X} at address 0x0100")
+            new_ram[0x0100] = int(size) & 0xFFFF
+            print(f"Stored size=0x{size:04X} (decimal {size}) at address 0x0100")
+            print(f"DEBUG: new_ram[0x0100] = {new_ram[0x0100]}, memory_size={len(new_ram)}")
             
             # [0x0101..0x0100+size] = элементы массива
             for i, value in enumerate(elements):
-                processor.memory.ram[0x0100 + i + 1] = value
-                print(f"Stored element[{i}] = 0x{value:04X} at address 0x{0x0100 + i + 1:04X}")
+                addr = 0x0100 + i + 1
+                if addr < len(new_ram):
+                    new_ram[addr] = int(value) & 0xFFFF
+                    print(f"Stored element[{i}] = 0x{value:04X} (decimal {value}) at address 0x{addr:04X}")
+                else:
+                    print(f"ERROR: Address 0x{addr:04X} out of bounds! memory_size={len(new_ram)}")
+            
+            # Присваиваем новый список памяти (Pydantic увидит изменение)
+            # ВАЖНО: создаем полностью новый список для Pydantic
+            processor.memory.ram = new_ram[:]  # Создаем копию списка
+            
+            # Принудительно проверяем, что данные записались
+            # Если Pydantic не обновился, создаем новый объект MemoryState
+            if processor.memory.ram[0x0100] != size:
+                print(f"WARNING: Данные не записались! Создаем новый объект MemoryState")
+                # Создаем новый объект MemoryState с правильными данными
+                from .models import MemoryState
+                processor.memory = MemoryState(ram=new_ram[:], history=processor.memory.history)
+            
+            # Проверяем, что данные действительно загружены
+            if 0x0100 < len(processor.memory.ram):
+                verify_val = processor.memory.ram[0x0100]
+                print(f"VERIFY: memory.ram[0x0100] = {verify_val} (0x{verify_val:04X}), expected={size}")
+                if verify_val != size:
+                    print(f"ERROR: Данные не совпадают! Ожидалось {size}, получено {verify_val}")
+                    # Принудительно устанавливаем значение
+                    ram_copy = list(processor.memory.ram)
+                    ram_copy[0x0100] = size
+                    processor.memory.ram = ram_copy
+                    print(f"FORCE FIX: Установлено значение {size} в память")
+            else:
+                print(f"ERROR: Cannot verify - memory too small! memory_size={len(processor.memory.ram)}")
             
         elif task_id == 2:  # Свертка массивов
             # Формат: [size_a, a1..aN, size_b, b1..bM]

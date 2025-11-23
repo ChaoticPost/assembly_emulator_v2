@@ -6,6 +6,7 @@ from .processor import RISCProcessor
 from .assembler import RISCAssembler
 from .tasks import TaskManager
 from .models import EmulatorState, ProcessorState, MemoryState
+from .processor import RISCProcessor
 
 class RISCEmulator:
     """Эмулятор двухадресного RISC процессора"""
@@ -57,14 +58,65 @@ class RISCEmulator:
             }
         
         try:
-            # Сбрасываем процессор
-            self.reset()
+            # Сбрасываем процессор (но НЕ память - данные задачи должны сохраниться)
+            # Сохраняем текущую память перед сбросом
+            saved_ram = list(self.processor.memory.ram) if self.processor.memory.ram else []
+            saved_ram_size = len(saved_ram) if saved_ram else self.processor.memory_size
             
-            # Загружаем программу задачи
+            # Сбрасываем только процессор, но НЕ память
+            # Вместо полного reset, сбрасываем только состояние процессора
+            self.processor.processor = ProcessorState()
+            self.processor.processor.registers = [0] * 8
+            self.processor.processor.program_counter = 0
+            self.processor.processor.is_halted = False
+            self.processor.processor.flags = {
+                "zero": False,
+                "carry": False,
+                "overflow": False,
+                "negative": False
+            }
+            self.processor.processor.cycles = 0
+            self.processor.memory.history = []
+            
+            # Восстанавливаем память (гарантируем достаточный размер)
+            if saved_ram and len(saved_ram) >= 0x0101:
+                # Создаем новый список для Pydantic
+                self.processor.memory.ram = list(saved_ram)
+            else:
+                # Если память пустая или недостаточного размера, создаем новую
+                min_size = max(saved_ram_size, 0x0200)  # Минимум до 0x0200
+                self.processor.memory.ram = [0] * min_size
+                print(f"DEBUG load_task: Создана новая память размером {min_size}")
+            
+            # Сохраняем память перед загрузкой программы
+            ram_before_load_program = list(self.processor.memory.ram) if self.processor.memory.ram else []
+            
+            # Загружаем программу задачи (это НЕ сбрасывает память, только регистры и историю)
             self.load_program(task["program"])
             
-            # Настраиваем данные задачи
+            # Восстанавливаем память после load_program (на всякий случай)
+            if ram_before_load_program and len(ram_before_load_program) > 0:
+                self.processor.memory.ram = ram_before_load_program
+                print(f"DEBUG load_task: Память восстановлена после load_program, length={len(self.processor.memory.ram)}")
+            
+            # Настраиваем данные задачи (ВАЖНО: после load_program, чтобы память не сбросилась)
             self.task_manager.setup_task_data(self.processor, task_id)
+            
+            # Проверяем, что данные загружены ПОСЛЕ setup_task_data
+            if task_id == 1:
+                if 0x0100 < len(self.processor.memory.ram):
+                    mem_val_after = self.processor.memory.ram[0x0100]
+                    print(f"DEBUG load_task: Memory ПОСЛЕ setup_task_data at 0x0100 = {mem_val_after} (0x{mem_val_after:04X})")
+                else:
+                    print(f"DEBUG load_task: ERROR - Memory too small after setup_task_data! memory_size={len(self.processor.memory.ram)}")
+            
+            # Проверяем, что данные загружены в память
+            if task_id == 1:
+                if 0x0100 < len(self.processor.memory.ram):
+                    mem_val = self.processor.memory.ram[0x0100]
+                    print(f"DEBUG load_task: Memory at 0x0100 = {mem_val} (0x{mem_val:04X}), memory_size={len(self.processor.memory.ram)}")
+                else:
+                    print(f"DEBUG load_task: ERROR - Memory too small! memory_size={len(self.processor.memory.ram)}, need >= 0x0101")
             
             self.current_task = task_id
             

@@ -455,18 +455,48 @@ class RISCProcessor:
                 rd, _ = self._parse_operand(operands[0])
                 rs1, mode1 = self._parse_operand(operands[1])
                 # Получаем адрес из регистра rs1
-                addr = self._get_operand_value(rs1, mode1)
+                addr_reg_value = self._get_operand_value(rs1, mode1)
                 # Ограничиваем адрес 16-битным диапазоном
-                addr = addr & 0xFFFF
-                # Загружаем значение из памяти по адресу
-                if 0 <= addr < len(self.memory.ram):
-                    mem_val = self.memory.ram[addr]
-                    # Ограничиваем значение 16-битным диапазоном
-                    mem_val = int(mem_val) & 0xFFFF
-                    self._update_register(rd, mem_val)
-                    print(f"DEBUG LDRR: rd={rd}, addr=0x{addr:04X}, mem_val={mem_val}, registers[{rd}]={self.processor.registers[rd]}, all_registers={self.processor.registers}")
+                addr = addr_reg_value & 0xFFFF
+                
+                # КРИТИЧНО: Проверяем память ПЕРЕД чтением
+                print(f"DEBUG LDRR START: rs1={rs1}, rs1_value=0x{addr_reg_value:04X}, addr=0x{addr:04X}")
+                print(f"  Memory exists: {self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
+                if self.memory.ram and addr >= 0x0100 and addr <= 0x0107:
+                    print(f"  DEBUG LDRR: Проверка памяти задачи 1 ПЕРЕД чтением:")
+                    for check_addr in [0x0100, 0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107]:
+                        if check_addr < len(self.memory.ram):
+                            check_val = self.memory.ram[check_addr]
+                            print(f"    memory.ram[0x{check_addr:04X}] = {check_val} (0x{check_val:04X})")
+                
+                # Проверяем, что адрес в пределах памяти
+                if addr < 0:
+                    print(f"ERROR LDRR: Negative address 0x{addr:04X}")
+                    mem_val = 0
+                elif addr >= len(self.memory.ram):
+                    print(f"ERROR LDRR: Address 0x{addr:04X} out of bounds (memory_size=0x{len(self.memory.ram):04X})")
+                    print(f"  Memory size: {len(self.memory.ram)}, required: >= 0x{addr + 1:04X}")
+                    mem_val = 0
                 else:
-                    raise Exception(f"LDRR: Address 0x{addr:04X} out of bounds")
+                    # Читаем значение из памяти напрямую
+                    raw_val = self.memory.ram[addr]
+                    mem_val = int(raw_val) & 0xFFFF
+                    print(f"DEBUG LDRR: rd={rd}, rs1={rs1}, rs1_value=0x{addr_reg_value:04X}, addr=0x{addr:04X}, raw_value={raw_val}, memory[0x{addr:04X}]=0x{mem_val:04X} (decimal {mem_val})")
+                    print(f"  Memory check: memory.ram exists={self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
+                    # Дополнительная проверка для задачи 1
+                    if addr >= 0x0100 and addr <= 0x0107:
+                        print(f"  DEBUG LDRR TASK1: Читаем из адреса 0x{addr:04X}, значение={mem_val} (0x{mem_val:04X})")
+                        if mem_val == 0:
+                            print(f"  WARNING LDRR TASK1: Прочитано 0 из адреса 0x{addr:04X}, но ожидалось значение элемента массива!")
+                            print(f"  WARNING LDRR TASK1: Проверяем все адреса задачи 1:")
+                            for check_addr in [0x0100, 0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107]:
+                                if check_addr < len(self.memory.ram):
+                                    check_val = self.memory.ram[check_addr]
+                                    print(f"    memory.ram[0x{check_addr:04X}] = {check_val} (0x{check_val:04X})")
+                
+                # Обновляем регистр
+                self._update_register(rd, mem_val)
+                print(f"DEBUG LDRR AFTER: rd={rd}, registers[{rd}]=0x{self.processor.registers[rd]:04X} (decimal {self.processor.registers[rd]}), all_registers={self.processor.registers}")
             else:
                 raise Exception(f"LDRR requires 2 operands: LDRR rd, [rs1]")
             
@@ -749,6 +779,12 @@ class RISCProcessor:
     
     def get_state(self) -> Dict[str, Any]:
         """Получить текущее состояние процессора"""
+        # Проверяем память перед сериализацией (для отладки задачи 1)
+        if self.memory.ram and len(self.memory.ram) > 0x0100:
+            check_val = self.memory.ram[0x0100]
+            if check_val != 0:
+                print(f"DEBUG get_state: Память содержит данные задачи, ram[0x0100]={check_val} (0x{check_val:04X})")
+        
         # Гарантируем, что история правильно сериализуется
         # Преобразуем каждый элемент истории, чтобы убедиться, что все значения - это базовые типы Python
         history_serialized = []

@@ -37,11 +37,15 @@ class ApiService {
 
   // Компилировать код
   async compileCode(sourceCode: string, taskId?: number): Promise<{ success: boolean; machine_code: string[]; labels: any; state?: any }> {
-    const requestBody = { source_code: sourceCode };
-    if (taskId !== undefined && taskId !== null) {
-      (requestBody as any).task_id = taskId;
+    const requestBody: any = { source_code: sourceCode };
+    // ВАЖНО: добавляем task_id только если он определен и не равен null/undefined
+    if (taskId !== undefined && taskId !== null && taskId > 0) {
+      requestBody.task_id = taskId;
+      console.log('[API] compileCode: task_id добавлен в запрос:', taskId);
+    } else {
+      console.log('[API] compileCode: task_id не добавлен, taskId=', taskId);
     }
-    console.log('Отправляем запрос на компиляцию:', requestBody);
+    console.log('[API] Отправляем запрос на компиляцию:', requestBody);
     return this.request('/api/compile', {
       method: 'POST',
       body: JSON.stringify(requestBody),

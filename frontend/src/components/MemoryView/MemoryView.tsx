@@ -250,8 +250,7 @@ export const MemoryView: React.FC = () => {
                     <div className="memory-section">
                         {/* Шаги выполнения для задачи 2 */}
                         <div>
-                            <h4 className="flex items-center mb-4">
-                                <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ИСПОЛНЕНИЕ</span>
+                            <h4 className="mb-4">
                                 Пошаговое выполнение программы
                                 {memory.history.length > 0 && (
                                     <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded animate-pulse">
@@ -321,15 +320,14 @@ export const MemoryView: React.FC = () => {
                     </div>
                 ) : (
                     <div className="memory-section">
-                        <h4 className="flex items-center mb-4">
-                            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ИСПОЛНЕНИЕ</span>
-                            Пошаговое выполнение программы
-                            {memory.history.length > 0 && (
-                                <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded animate-pulse">
-                                    Активно
-                                </span>
-                            )}
-                        </h4>
+                            <h4 className="mb-4">
+                                Пошаговое выполнение программы
+                                {memory.history.length > 0 && (
+                                    <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded animate-pulse">
+                                        Активно
+                                    </span>
+                                )}
+                            </h4>
                         <DataTable
                             value={executionData}
                             size="small"

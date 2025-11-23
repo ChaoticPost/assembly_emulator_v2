@@ -239,27 +239,50 @@ HALT
             
             # Присваиваем новый список памяти (Pydantic увидит изменение)
             # ВАЖНО: создаем полностью новый список для Pydantic
-            processor.memory.ram = new_ram[:]  # Создаем копию списка
+            processor.memory.ram = list(new_ram)  # Создаем новый список
             
-            # Принудительно проверяем, что данные записались
-            # Если Pydantic не обновился, создаем новый объект MemoryState
-            if processor.memory.ram[0x0100] != size:
-                print(f"WARNING: Данные не записались! Создаем новый объект MemoryState")
-                # Создаем новый объект MemoryState с правильными данными
-                from .models import MemoryState
-                processor.memory = MemoryState(ram=new_ram[:], history=processor.memory.history)
-            
-            # Проверяем, что данные действительно загружены
+            # Проверяем, что данные действительно загружены СРАЗУ после присваивания
             if 0x0100 < len(processor.memory.ram):
                 verify_val = processor.memory.ram[0x0100]
                 print(f"VERIFY: memory.ram[0x0100] = {verify_val} (0x{verify_val:04X}), expected={size}")
-                if verify_val != size:
-                    print(f"ERROR: Данные не совпадают! Ожидалось {size}, получено {verify_val}")
-                    # Принудительно устанавливаем значение
-                    ram_copy = list(processor.memory.ram)
-                    ram_copy[0x0100] = size
-                    processor.memory.ram = ram_copy
-                    print(f"FORCE FIX: Установлено значение {size} в память")
+                
+                # Проверяем все элементы массива
+                all_ok = True
+                for i, expected_value in enumerate(elements):
+                    addr = 0x0100 + i + 1
+                    if addr < len(processor.memory.ram):
+                        actual_val = processor.memory.ram[addr]
+                        if actual_val != expected_value:
+                            print(f"ERROR: memory.ram[0x{addr:04X}] = {actual_val}, expected={expected_value}")
+                            all_ok = False
+                        else:
+                            print(f"OK: memory.ram[0x{addr:04X}] = {actual_val} (0x{actual_val:04X}) ✓")
+                    else:
+                        print(f"ERROR: Address 0x{addr:04X} out of bounds for verification!")
+                        all_ok = False
+                
+                # Если данные не записались, принудительно исправляем
+                if verify_val != size or not all_ok:
+                    print(f"ERROR: Данные не совпадают! Принудительно исправляем память")
+                    # Создаем новый список с правильными данными
+                    fixed_ram = list(processor.memory.ram)
+                    # Гарантируем достаточный размер
+                    while len(fixed_ram) < required_size:
+                        fixed_ram.append(0)
+                    # Устанавливаем размер
+                    fixed_ram[0x0100] = int(size) & 0xFFFF
+                    # Обновляем элементы массива
+                    for i, value in enumerate(elements):
+                        addr = 0x0100 + i + 1
+                        if addr < len(fixed_ram):
+                            fixed_ram[addr] = int(value) & 0xFFFF
+                            print(f"FORCE FIX: fixed_ram[0x{addr:04X}] = {value} (0x{value:04X})")
+                    # Присваиваем исправленную память (создаем новый объект для Pydantic)
+                    from .models import MemoryState
+                    processor.memory = MemoryState(ram=fixed_ram, history=processor.memory.history)
+                    print(f"FORCE FIX: Память исправлена, проверка: memory.ram[0x0100]={processor.memory.ram[0x0100]}, memory.ram[0x0107]={processor.memory.ram[0x0107] if 0x0107 < len(processor.memory.ram) else 'OUT_OF_BOUNDS'}")
+                else:
+                    print(f"OK: Все данные успешно записаны в память")
             else:
                 print(f"ERROR: Cannot verify - memory too small! memory_size={len(processor.memory.ram)}")
             

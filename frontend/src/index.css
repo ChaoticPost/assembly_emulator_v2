@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Minimal CSS - only fonts */
 @font-face {
   font-family: 'Spoof';

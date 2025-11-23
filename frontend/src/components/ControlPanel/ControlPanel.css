@@ -20,12 +20,76 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
-.control-card .p-card-title {
+.control-card .p-card-title,
+.control-panel-title {
   font-size: clamp(1.125rem, 2.5vw, 1.5rem);
   font-weight: 700;
   color: #166534;
   margin-bottom: clamp(1rem, 2vh, 1.5rem);
   text-shadow: 0 2px 4px rgba(22, 101, 52, 0.1);
+}
+
+/* ADD: Step button styling */
+.step-button {
+  background-color: white !important;
+  border: 1px solid #e5e7eb !important;
+  color: #374151 !important;
+  transition: all 0.2s ease;
+}
+
+.step-button:hover:not(:disabled) {
+  background-color: #f9fafb !important;
+  border-color: #d1d5db !important;
+  color: #1f2937 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.step-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ADD: Execute button styling */
+.execute-button {
+  background-color: #16a34a !important;
+  border-color: #16a34a !important;
+  color: white !important;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.execute-button:hover:not(:disabled) {
+  background-color: #15803d !important;
+  border-color: #15803d !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+}
+
+.execute-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ADD: Reset button styling */
+.reset-button {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: white !important;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.reset-button:hover:not(:disabled) {
+  background-color: #b91c1c !important;
+  border-color: #b91c1c !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.reset-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .control-buttons {

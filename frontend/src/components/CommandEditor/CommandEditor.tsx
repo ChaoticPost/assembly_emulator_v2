@@ -6,7 +6,7 @@ import { apiService } from '../../services/api';
 import './CommandEditor.css';
 
 export const CommandEditor: React.FC = () => {
-  const { state, setSourceCode, compileCode, loading, error, current_task } = useEmulatorStore();
+  const { state, setSourceCode, compileCode, loading, error, current_task, setCurrentTask } = useEmulatorStore();
   const [assemblyCode, setAssemblyCode] = useState(state.source_code);
   const [activeTab, setActiveTab] = useState<'editor' | 'examples' | 'help'>('editor');
   const [exampleCode, setExampleCode] = useState<string>('');
@@ -49,14 +49,16 @@ export const CommandEditor: React.FC = () => {
     }
   };
 
-  const handleTaskSelect = (taskId: number) => {
+  const handleTaskSelect = async (taskId: number) => {
     if (taskId === selectedTask) {
       // Если та же задача выбрана снова, снимаем выбор
       setSelectedTask(null);
       setExampleCode('');
+      await setCurrentTask(null); // ВАЖНО: сбрасываем current_task в store
     } else {
       // Выбираем новую задачу и загружаем пример
       setSelectedTask(taskId);
+      await setCurrentTask(taskId); // ВАЖНО: устанавливаем current_task в store
       handleLoadTaskExample(taskId);
     }
   };
@@ -180,18 +182,14 @@ HALT
   return (
     <Card className="glass-card p-6">
       <div className="flex items-center justify-between mb-6">
-        <h5 className="text-xl font-bold text-white-900 font-heading">Редактор команд</h5>
-        <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-          <span className="text-sm text-gray-600">Редактирование</span>
-        </div>
+        <h5 className="command-editor-title text-xl font-bold font-heading">Редактор команд</h5>
       </div>
 
       <div className="space-y-6">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
             <button
-              className={`border-b-2 py-2 px-1 text-sm font-medium ${activeTab === 'editor'
+              className={`border-b-2 py-2 px-1 text-sm font-bold ${activeTab === 'editor'
                 ? 'border-green-500 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
@@ -200,7 +198,7 @@ HALT
               Ассемблер
             </button>
             <button
-              className={`border-b-2 py-2 px-1 text-sm font-medium ${activeTab === 'examples'
+              className={`border-b-2 py-2 px-1 text-sm font-bold ${activeTab === 'examples'
                 ? 'border-green-500 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
@@ -209,7 +207,7 @@ HALT
               Примеры
             </button>
             <button
-              className={`border-b-2 py-2 px-1 text-sm font-medium ${activeTab === 'help'
+              className={`border-b-2 py-2 px-1 text-sm font-bold ${activeTab === 'help'
                 ? 'border-green-500 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
@@ -252,7 +250,7 @@ HALT
                 size="sm"
                 onClick={handleCompile}
                 disabled={loading}
-                className="flex items-center space-x-2"
+                className="compile-button flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white border-0"
               >
                 {loading ? (
                   <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -358,7 +356,7 @@ HALT
                     color="success"
                     size="sm"
                     onClick={handleInsertExample}
-                    className="flex items-center space-x-2"
+                    className="insert-button flex items-center space-x-2"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />

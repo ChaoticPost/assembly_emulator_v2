@@ -9,18 +9,14 @@ export const ControlPanel: React.FC = () => {
   return (
     <Card className="glass-card p-6">
       <div className="flex items-center justify-between mb-6">
-        <h5 className="text-xl font-bold text-white-900 font-heading">Управление</h5>
-        <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-sm text-gray-600">Готов</span>
-        </div>
+        <h5 className="control-panel-title text-xl font-bold font-heading">Управление</h5>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <Button
           color="light"
           size="lg"
-          className="h-16 flex flex-col items-center justify-center space-y-2"
+          className="step-button h-16 flex flex-col items-center justify-center space-y-2"
           onClick={executeStep}
           disabled={loading}
         >
@@ -33,7 +29,7 @@ export const ControlPanel: React.FC = () => {
         <Button
           color="success"
           size="lg"
-          className="h-16 flex flex-col items-center justify-center space-y-2"
+          className="execute-button h-16 flex flex-col items-center justify-center space-y-2 bg-green-600 hover:bg-green-700 text-white border-0"
           onClick={executeRemaining}
           disabled={loading}
         >
@@ -76,7 +72,7 @@ export const ControlPanel: React.FC = () => {
         <Button
           color="failure"
           size="lg"
-          className="h-16 flex flex-col items-center justify-center space-y-2"
+          className="reset-button h-16 flex flex-col items-center justify-center space-y-2 bg-red-600 hover:bg-red-700 text-white border-0"
           onClick={reset}
           disabled={loading}
         >

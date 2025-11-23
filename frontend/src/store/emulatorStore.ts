@@ -59,6 +59,8 @@ export const useEmulatorStore = create<{
     })),
 
     setCurrentTask: async (taskId) => {
+        console.log('[setCurrentTask] Устанавливаем задачу:', taskId);
+        // ВАЖНО: сначала устанавливаем current_task, чтобы он был доступен сразу
         set((state) => ({
             state: { ...state.state, current_task: taskId },
             current_task: taskId
@@ -67,14 +69,18 @@ export const useEmulatorStore = create<{
         // Если выбрана задача, загружаем её данные
         if (taskId) {
             try {
-                console.log('Загружаем данные задачи', taskId);
+                console.log('[setCurrentTask] Загружаем данные задачи', taskId);
                 const result = await apiService.loadTask(taskId);
                 if (result.success) {
-                    set({ state: result.state });
-                    console.log('Данные задачи загружены:', result.state);
+                    // ВАЖНО: сохраняем current_task при обновлении состояния
+                    set({ 
+                        state: { ...result.state, current_task: taskId },
+                        current_task: taskId
+                    });
+                    console.log('[setCurrentTask] Данные задачи загружены, current_task сохранен:', taskId);
                 }
             } catch (error) {
-                console.warn('Не удалось загрузить данные задачи:', error);
+                console.warn('[setCurrentTask] Не удалось загрузить данные задачи:', error);
             }
         }
     },
@@ -173,18 +179,26 @@ export const useEmulatorStore = create<{
             let taskState: EmulatorState | null = null;
             
             // Используем current_task из store или из state
-            const taskId = current_task || state_current_task;
+            // ВАЖНО: проверяем оба места и убеждаемся, что taskId не null/undefined
+            let taskId: number | undefined = undefined;
+            if (current_task !== null && current_task !== undefined) {
+                taskId = current_task;
+            } else if (state_current_task !== null && state_current_task !== undefined) {
+                taskId = state_current_task;
+            }
             
             console.log('[COMPILE] taskId для передачи в компиляцию:', taskId);
             console.log('[COMPILE] current_task from store:', current_task);
             console.log('[COMPILE] state.current_task:', state_current_task);
+            console.log('[COMPILE] taskId после проверки:', taskId);
             
             // НЕ загружаем задачу на фронтенде - пусть бэкенд сделает это
             // Это гарантирует, что данные загружаются в правильном порядке
             
             console.log('[COMPILE] Отправляем запрос на компиляцию с task_id:', taskId);
             // Передаем task_id в запрос компиляции, чтобы бэкенд загрузил данные задачи
-            const result = await apiService.compileCode(code, taskId || undefined);
+            // ВАЖНО: передаем taskId только если он определен (не null и не undefined)
+            const result = await apiService.compileCode(code, taskId);
             console.log('[COMPILE] Результат компиляции:', result);
             
             if (result.success) {

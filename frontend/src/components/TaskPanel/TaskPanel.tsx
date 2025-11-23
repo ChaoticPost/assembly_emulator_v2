@@ -28,8 +28,7 @@ export const TaskPanel: React.FC = () => {
   return (
     <Card className="glass-card p-6">
       <div className="flex items-center justify-between mb-6">
-        <h5 className="text-xl font-bold text-white-900 font-heading">Задания</h5>
-        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+        <h5 className="text-xl font-bold text-gray-900 font-heading">Задания</h5>
       </div>
 
       {loading ? (

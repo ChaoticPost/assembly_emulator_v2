@@ -102,21 +102,51 @@ class RISCEmulator:
             # Настраиваем данные задачи (ВАЖНО: после load_program, чтобы память не сбросилась)
             self.task_manager.setup_task_data(self.processor, task_id)
             
-            # Проверяем, что данные загружены ПОСЛЕ setup_task_data
+            # КРИТИЧНО: Принудительно проверяем и исправляем данные для задачи 1
             if task_id == 1:
-                if 0x0100 < len(self.processor.memory.ram):
-                    mem_val_after = self.processor.memory.ram[0x0100]
-                    print(f"DEBUG load_task: Memory ПОСЛЕ setup_task_data at 0x0100 = {mem_val_after} (0x{mem_val_after:04X})")
+                # Проверяем все элементы массива
+                expected_data = [7, 10, 20, 30, 40, 50, 60, 70]
+                needs_fix = False
+                
+                # Проверяем размер памяти
+                required_size = 0x0108  # До 0x0107 включительно
+                if len(self.processor.memory.ram) < required_size:
+                    print(f"DEBUG load_task: Расширяем память до {required_size}")
+                    new_ram = list(self.processor.memory.ram) if self.processor.memory.ram else [0] * required_size
+                    while len(new_ram) < required_size:
+                        new_ram.append(0)
+                    self.processor.memory.ram = new_ram
+                
+                # Проверяем каждое значение
+                for i, expected_val in enumerate(expected_data):
+                    addr = 0x0100 + i
+                    if addr < len(self.processor.memory.ram):
+                        actual_val = self.processor.memory.ram[addr]
+                        if actual_val != expected_val:
+                            print(f"DEBUG load_task: ОШИБКА на адресе 0x{addr:04X}: ожидалось {expected_val}, получено {actual_val}")
+                            needs_fix = True
+                        else:
+                            print(f"DEBUG load_task: OK на адресе 0x{addr:04X}: {actual_val} (0x{actual_val:04X}) ✓")
+                    else:
+                        print(f"DEBUG load_task: ОШИБКА: адрес 0x{addr:04X} вне границ памяти!")
+                        needs_fix = True
+                
+                # Принудительно исправляем, если нужно
+                if needs_fix:
+                    print(f"DEBUG load_task: Принудительно исправляем память для задачи 1")
+                    fixed_ram = list(self.processor.memory.ram) if self.processor.memory.ram else [0] * required_size
+                    while len(fixed_ram) < required_size:
+                        fixed_ram.append(0)
+                    for i, expected_val in enumerate(expected_data):
+                        addr = 0x0100 + i
+                        fixed_ram[addr] = int(expected_val) & 0xFFFF
+                        print(f"DEBUG load_task: Установлено fixed_ram[0x{addr:04X}] = {expected_val} (0x{expected_val:04X})")
+                    # Создаем новый объект MemoryState для Pydantic
+                    from .models import MemoryState
+                    self.processor.memory = MemoryState(ram=fixed_ram, history=self.processor.memory.history)
+                    print(f"DEBUG load_task: Память исправлена, проверка: memory.ram[0x0100]={self.processor.memory.ram[0x0100]}, memory.ram[0x0107]={self.processor.memory.ram[0x0107]}")
                 else:
-                    print(f"DEBUG load_task: ERROR - Memory too small after setup_task_data! memory_size={len(self.processor.memory.ram)}")
-            
-            # Проверяем, что данные загружены в память
-            if task_id == 1:
-                if 0x0100 < len(self.processor.memory.ram):
-                    mem_val = self.processor.memory.ram[0x0100]
-                    print(f"DEBUG load_task: Memory at 0x0100 = {mem_val} (0x{mem_val:04X}), memory_size={len(self.processor.memory.ram)}")
-                else:
-                    print(f"DEBUG load_task: ERROR - Memory too small! memory_size={len(self.processor.memory.ram)}, need >= 0x0101")
+                    print(f"DEBUG load_task: Все данные задачи 1 корректны ✓")
             
             self.current_task = task_id
             

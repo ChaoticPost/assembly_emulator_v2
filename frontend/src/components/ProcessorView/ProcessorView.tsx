@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useEmulatorStore } from '../../store/emulatorStore';
+import { apiService } from '../../services/api';
 import './ProcessorView.css';
 
 export const ProcessorView: React.FC = () => {
@@ -7,6 +8,7 @@ export const ProcessorView: React.FC = () => {
   const { processor } = state;
   const [previousCounter, setPreviousCounter] = useState(processor.program_counter);
   const [animateCounter, setAnimateCounter] = useState(false);
+  const [taskTestData, setTaskTestData] = useState<number[] | null>(null);
   
   // Отладочная информация
   useEffect(() => {
@@ -117,6 +119,41 @@ export const ProcessorView: React.FC = () => {
     }
   }, [processor.flags, previousFlags]);
 
+  // Загружаем test_data задачи при изменении current_task
+  useEffect(() => {
+    if (current_task) {
+      apiService.getTaskProgram(current_task)
+        .then((result) => {
+          setTaskTestData(result.test_data);
+        })
+        .catch((error) => {
+          console.warn('Не удалось загрузить test_data задачи:', error);
+          setTaskTestData(null);
+        });
+    } else {
+      setTaskTestData(null);
+    }
+  }, [current_task]);
+
+  // Функция для формирования строки результата задачи 1
+  const formatTask1Result = useMemo(() => {
+    if (!taskTestData || taskTestData.length < 2 || current_task !== 1) {
+      return null;
+    }
+    
+    // Формат: [размер, элемент1, элемент2, ...]
+    const size = taskTestData[0];
+    const elements = taskTestData.slice(1, 1 + size);
+    const sum = elements.reduce((acc, val) => acc + val, 0);
+    const actualSum = state.processor.registers[0] || 0;
+    
+    // Формируем строку: элемент1+элемент2+... = сумма (hex)
+    const elementsStr = elements.join('+');
+    const hexSum = formatValue(actualSum, true);
+    
+    return `${elementsStr} = ${actualSum} (${hexSum})`;
+  }, [taskTestData, current_task, state.processor.registers[0]]);
+
   return (
     <div className="processor-view-container">
       <div className="processor-header">
@@ -211,18 +248,18 @@ export const ProcessorView: React.FC = () => {
         <div className="processor-section flags-section">
           <div className="section-content">
             <label className="section-label">
-              Флаги состояния
+              {state.processor.is_halted && state.processor.cycles > 0 ? 'Итог' : 'Флаги состояния'}
             </label>
             {current_task === 1 && state.processor.is_halted && state.processor.cycles > 0 ? (
               <div className="task-result">
                 <div className="task-result-value">
-                  {formatValue(state.processor.registers[0] || 280, true)}
+                  {formatValue(state.processor.registers[0] || 0, true)}
                 </div>
                 <div className="task-result-title">
                   Сумма элементов массива
                 </div>
                 <div className="task-result-desc">
-                  {state.processor.registers[0] === 280 || state.processor.registers[0] === 0 ? '10+20+30+40+50+60+70 = 280 (0x0118)' : `Результат: ${formatValue(state.processor.registers[0], true)} (${state.processor.registers[0]})`}
+                  {formatTask1Result || `Результат: ${formatValue(state.processor.registers[0], true)} (${state.processor.registers[0] || 0})`}
                 </div>
               </div>
             ) : current_task === 2 && state.processor.is_halted && state.processor.cycles > 0 ? (

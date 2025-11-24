@@ -13,6 +13,8 @@ export const CommandEditor: React.FC = () => {
   const [loadingExample, setLoadingExample] = useState(false);
   const [compileSuccess, setCompileSuccess] = useState(false);
   const [selectedTask, setSelectedTask] = useState<number | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<boolean>(false);
+  const [task1Variant, setTask1Variant] = useState<'example' | 'template' | null>(null);
 
   const handleCodeChange = (code: string) => {
     setAssemblyCode(code);
@@ -53,13 +55,46 @@ export const CommandEditor: React.FC = () => {
     if (taskId === selectedTask) {
       // Если та же задача выбрана снова, снимаем выбор
       setSelectedTask(null);
+      setSelectedTemplate(false);
+      setTask1Variant(null);
       setExampleCode('');
       await setCurrentTask(null); // ВАЖНО: сбрасываем current_task в store
     } else {
-      // Выбираем новую задачу и загружаем пример
+      // Выбираем новую задачу
       setSelectedTask(taskId);
-      await setCurrentTask(taskId); // ВАЖНО: устанавливаем current_task в store
-      handleLoadTaskExample(taskId);
+      setSelectedTemplate(false);
+      if (taskId === 1) {
+        // Для задачи 1 не загружаем пример автоматически, ждем выбора варианта
+        setTask1Variant(null);
+        setExampleCode('');
+        await setCurrentTask(null);
+      } else {
+        // Для задачи 2 загружаем пример сразу
+        setTask1Variant(null);
+        await setCurrentTask(taskId); // ВАЖНО: устанавливаем current_task в store
+        handleLoadTaskExample(taskId);
+      }
+    }
+  };
+
+  const handleTask1VariantSelect = async (variant: 'example' | 'template') => {
+    if (task1Variant === variant) {
+      // Если тот же вариант выбран, снимаем выбор
+      setTask1Variant(null);
+      setExampleCode('');
+      await setCurrentTask(null);
+    } else {
+      // Выбираем новый вариант
+      setTask1Variant(variant);
+      // Для обоих вариантов устанавливаем current_task = 1, чтобы результат отображался
+      await setCurrentTask(1);
+      if (variant === 'example') {
+        // Загружаем пример задачи 1
+        handleLoadTaskExample(1);
+      } else {
+        // Загружаем шаблон
+        handleLoadTemplate();
+      }
     }
   };
 
@@ -71,6 +106,67 @@ export const CommandEditor: React.FC = () => {
 ; Ожидаемый результат: 280
 
 ; Инициализация
+LDI R0, 0          ; R0 = 0 (аккумулятор для суммы)
+LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x0100] - размер)
+LDI R2, 0x0100     ; R2 = базовый адрес массива
+
+; Загрузка размера массива
+LDR R3, [0x0100]   ; R3 = размер массива (из [0x0100])
+
+; Основной цикл
+LOOP_START:
+; Сравниваем индекс с (размер + 1)
+; Если индекс == размер + 1, значит обработали все элементы, выходим
+ADD R4, R3, 1      ; R4 = размер + 1
+CMP R1, R4         ; Сравнить индекс с (размер + 1)
+JZ LOOP_END        ; Если индекс == размер + 1, выйти из цикла
+
+; Вычисляем адрес текущего элемента: базовый_адрес + индекс
+ADD R5, R2, R1     ; R5 = 0x0100 + индекс (адрес элемента)
+LDRR R6, [R5]      ; R6 = [R5] (значение элемента массива)
+
+; Добавляем элемент к сумме
+ADD R0, R0, R6     ; R0 = R0 + R6 (сумма)
+
+; Увеличиваем индекс
+ADD R1, R1, 1      ; R1 = R1 + 1
+
+JMP LOOP_START     ; Переход к началу цикла
+
+LOOP_END:
+; Результат в R0 (аккумулятор)
+HALT`,
+
+      'template': `; Программа для вычисления суммы элементов массива
+; Массив: [7, 15, 20, 30, 40, 50, 60, 70] (размер=7, элементы: 15-70)
+; Ожидаемый результат: 285 (15+20+30+40+50+60+70)
+
+; Инициализация массива
+LDI R7, 7           ; Размер массива = 7
+STR R7, [0x0100]    ; Сохраняем размер по адресу 0x0100
+
+LDI R7, 15          ; Элемент 1 = 15
+STR R7, [0x0101]    ; Адрес 0x0101
+
+LDI R7, 20          ; Элемент 2 = 20
+STR R7, [0x0102]    ; Адрес 0x0102
+
+LDI R7, 30          ; Элемент 3 = 30
+STR R7, [0x0103]    ; Адрес 0x0103
+
+LDI R7, 40          ; Элемент 4 = 40
+STR R7, [0x0104]    ; Адрес 0x0104
+
+LDI R7, 50          ; Элемент 5 = 50
+STR R7, [0x0105]    ; Адрес 0x0105
+
+LDI R7, 60          ; Элемент 6 = 60
+STR R7, [0x0106]    ; Адрес 0x0106
+
+LDI R7, 70          ; Элемент 7 = 70
+STR R7, [0x0107]    ; Адрес 0x0107
+
+; Основная программа вычисления суммы
 LDI R0, 0          ; R0 = 0 (аккумулятор для суммы)
 LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x0100] - размер)
 LDI R2, 0x0100     ; R2 = базовый адрес массива
@@ -164,6 +260,71 @@ HALT
     };
 
     setExampleCode(examples[taskId as keyof typeof examples] || '');
+  };
+
+  const handleLoadTemplate = () => {
+    // Загружаем шаблон с ручной инициализацией массива
+    const template = `; Программа для вычисления суммы элементов массива
+; Массив: [7, 15, 20, 30, 40, 50, 60, 70] (размер=7, элементы: 15-70)
+; Ожидаемый результат: 285 (15+20+30+40+50+60+70)
+
+; Инициализация массива
+LDI R7, 7           ; Размер массива = 7
+STR R7, [0x0100]    ; Сохраняем размер по адресу 0x0100
+
+LDI R7, 15          ; Элемент 1 = 15
+STR R7, [0x0101]    ; Адрес 0x0101
+
+LDI R7, 20          ; Элемент 2 = 20
+STR R7, [0x0102]    ; Адрес 0x0102
+
+LDI R7, 30          ; Элемент 3 = 30
+STR R7, [0x0103]    ; Адрес 0x0103
+
+LDI R7, 40          ; Элемент 4 = 40
+STR R7, [0x0104]    ; Адрес 0x0104
+
+LDI R7, 50          ; Элемент 5 = 50
+STR R7, [0x0105]    ; Адрес 0x0105
+
+LDI R7, 60          ; Элемент 6 = 60
+STR R7, [0x0106]    ; Адрес 0x0106
+
+LDI R7, 70          ; Элемент 7 = 70
+STR R7, [0x0107]    ; Адрес 0x0107
+
+; Основная программа вычисления суммы
+LDI R0, 0          ; R0 = 0 (аккумулятор для суммы)
+LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x0100] - размер)
+LDI R2, 0x0100     ; R2 = базовый адрес массива
+
+; Загрузка размера массива
+LDR R3, [0x0100]   ; R3 = размер массива (из [0x0100])
+
+; Основной цикл
+LOOP_START:
+; Сравниваем индекс с (размер + 1)
+; Если индекс == размер + 1, значит обработали все элементы, выходим
+ADD R4, R3, 1      ; R4 = размер + 1
+CMP R1, R4         ; Сравнить индекс с (размер + 1)
+JZ LOOP_END        ; Если индекс == размер + 1, выйти из цикла
+
+; Вычисляем адрес текущего элемента: базовый_адрес + индекс
+ADD R5, R2, R1     ; R5 = 0x0100 + индекс (адрес элемента)
+LDRR R6, [R5]      ; R6 = [R5] (значение элемента массива)
+
+; Добавляем элемент к сумме
+ADD R0, R0, R6     ; R0 = R0 + R6 (сумма)
+
+; Увеличиваем индекс
+ADD R1, R1, 1      ; R1 = R1 + 1
+
+JMP LOOP_START     ; Переход к началу цикла
+
+LOOP_END:
+; Результат в R0 (аккумулятор)
+HALT`;
+    setExampleCode(template);
   };
 
   const handleInsertExample = () => {
@@ -306,10 +467,10 @@ HALT
                 </Button>
               </div>
               <p className="text-green-800 text-sm mb-4 font-body">
-                Готовые примеры кода для задач 1 и 2. Выберите задание и загрузите пример.
+                Готовые примеры кода для задач. Для задачи 1 доступны два варианта: пример с автоматической загрузкой данных и шаблон с ручной инициализацией массива.
               </p>
 
-              {/* Радиокнопки для выбора заданий (только одна задача) */}
+              {/* Радиокнопки для выбора заданий */}
               <div className="mb-4 space-y-2">
                 <div className="task-selection-item">
                   <input
@@ -325,6 +486,41 @@ HALT
                     <div className="task-selection-description">Сумма массива</div>
                   </label>
                 </div>
+                
+                {/* Подварианты для Задачи 1 */}
+                {selectedTask === 1 && (
+                  <div className="ml-8 space-y-2 mt-2">
+                    <div className="task-selection-item">
+                      <input
+                        type="radio"
+                        id="task-1-example"
+                        name="task-1-variant"
+                        checked={task1Variant === 'example'}
+                        onChange={() => handleTask1VariantSelect('example')}
+                        className="task-selection-radio"
+                      />
+                      <label htmlFor="task-1-example" className="task-selection-label">
+                        <div className="task-selection-title">Пример</div>
+                        <div className="task-selection-description">С автоматической загрузкой данных</div>
+                      </label>
+                    </div>
+                    <div className="task-selection-item">
+                      <input
+                        type="radio"
+                        id="task-1-template"
+                        name="task-1-variant"
+                        checked={task1Variant === 'template'}
+                        onChange={() => handleTask1VariantSelect('template')}
+                        className="task-selection-radio"
+                      />
+                      <label htmlFor="task-1-template" className="task-selection-label">
+                        <div className="task-selection-title">Шаблон</div>
+                        <div className="task-selection-description">С ручной инициализацией массива</div>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
                 <div className="task-selection-item">
                   <input
                     type="radio"

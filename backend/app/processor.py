@@ -186,7 +186,16 @@ class RISCProcessor:
         if addressing_mode == AddressingMode.IMMEDIATE:
             return operand
         elif addressing_mode == AddressingMode.REGISTER:
-            return self.processor.registers[operand]
+            # КРИТИЧНО: Проверяем, что регистры инициализированы
+            if not self.processor.registers:
+                print(f"ERROR _get_operand_value REGISTER: Регистры не инициализированы! operand=R{operand}")
+                return 0
+            if operand < 0 or operand >= len(self.processor.registers):
+                print(f"ERROR _get_operand_value REGISTER: Неверный номер регистра! operand=R{operand}, registers_count={len(self.processor.registers)}")
+                return 0
+            value = self.processor.registers[operand]
+            print(f"DEBUG _get_operand_value REGISTER: operand=R{operand}, value=0x{value:04X} (decimal {value})")
+            return value
         elif addressing_mode == AddressingMode.DIRECT:
             if 0 <= operand < len(self.memory.ram):
                 value = self.memory.ram[operand]
@@ -196,22 +205,62 @@ class RISCProcessor:
             return 0
         elif addressing_mode == AddressingMode.INDIRECT_REGISTER:
             addr = self.processor.registers[operand]
+            if not self.memory.ram:
+                print(f"DEBUG _get_operand_value INDIRECT_REGISTER: Память не инициализирована! operand=R{operand}, addr=0x{addr:04X}")
+                return 0
             if 0 <= addr < len(self.memory.ram):
-                return self.memory.ram[addr]
+                value = self.memory.ram[addr]
+                print(f"DEBUG _get_operand_value INDIRECT_REGISTER: operand=R{operand}, R{operand}=0x{addr:04X}, memory[0x{addr:04X}]=0x{value:04X} (decimal {value})")
+                return value
+            print(f"DEBUG _get_operand_value INDIRECT_REGISTER: operand=R{operand}, addr=0x{addr:04X} OUT_OF_BOUNDS (memory_size=0x{len(self.memory.ram):04X})")
             return 0
         return 0
     
     def _set_operand_value(self, operand: Any, value: int, addressing_mode: AddressingMode):
         """Установка значения операнда в зависимости от режима адресации"""
         if addressing_mode == AddressingMode.REGISTER:
-            self.processor.registers[operand] = value
+            self._update_register(operand, value)
         elif addressing_mode == AddressingMode.DIRECT:
-            if 0 <= operand < len(self.memory.ram):
-                self.memory.ram[operand] = value
+            # КРИТИЧНО: Создаем новый список для Pydantic, чтобы изменения были видны
+            if not self.memory.ram:
+                # Если память не инициализирована, создаем новую
+                min_size = max(operand + 1, self.memory_size)
+                self.memory.ram = [0] * min_size
+                print(f"DEBUG _set_operand_value: Инициализирована память размером {min_size}")
+            
+            # Гарантируем достаточный размер памяти
+            if operand >= len(self.memory.ram):
+                new_ram = list(self.memory.ram)
+                new_ram.extend([0] * (operand + 1 - len(new_ram)))
+                self.memory.ram = new_ram
+                print(f"DEBUG _set_operand_value: Расширена память до {len(self.memory.ram)} для адреса 0x{operand:04X}")
+            
+            # Создаем новый список для Pydantic
+            new_ram = list(self.memory.ram)
+            new_ram[operand] = int(value) & 0xFFFF
+            self.memory.ram = new_ram
+            print(f"DEBUG _set_operand_value: Записано значение 0x{value:04X} (decimal {value}) по адресу 0x{operand:04X}, ram[0x{operand:04X}]={self.memory.ram[operand]}")
         elif addressing_mode == AddressingMode.INDIRECT_REGISTER:
             addr = self.processor.registers[operand]
-            if 0 <= addr < len(self.memory.ram):
-                self.memory.ram[addr] = value
+            # КРИТИЧНО: Создаем новый список для Pydantic, чтобы изменения были видны
+            if not self.memory.ram:
+                # Если память не инициализирована, создаем новую
+                min_size = max(addr + 1, self.memory_size)
+                self.memory.ram = [0] * min_size
+                print(f"DEBUG _set_operand_value: Инициализирована память размером {min_size} для косвенной адресации")
+            
+            # Гарантируем достаточный размер памяти
+            if addr >= len(self.memory.ram):
+                new_ram = list(self.memory.ram)
+                new_ram.extend([0] * (addr + 1 - len(new_ram)))
+                self.memory.ram = new_ram
+                print(f"DEBUG _set_operand_value: Расширена память до {len(self.memory.ram)} для косвенного адреса 0x{addr:04X}")
+            
+            # Создаем новый список для Pydantic
+            new_ram = list(self.memory.ram)
+            new_ram[addr] = int(value) & 0xFFFF
+            self.memory.ram = new_ram
+            print(f"DEBUG _set_operand_value: Записано значение 0x{value:04X} (decimal {value}) по косвенному адресу 0x{addr:04X} (R{operand}=0x{self.processor.registers[operand]:04X}), ram[0x{addr:04X}]={self.memory.ram[addr]}")
     
     def update_flags(self, result: int, operation: str = ""):
         """Обновление флагов после операции"""
@@ -453,46 +502,94 @@ class RISCProcessor:
         elif instruction == "LDRR":
             if len(operands) >= 2:
                 rd, _ = self._parse_operand(operands[0])
-                rs1, mode1 = self._parse_operand(operands[1])
+                rs1_str = operands[1].strip()
+                print(f"DEBUG LDRR PARSE: operands[1]='{rs1_str}'")
+                
+                # Парсим операнд [rs1] - должен быть косвенно-регистровая адресация
+                rs1, mode1 = self._parse_operand(rs1_str)
+                print(f"DEBUG LDRR PARSE: rs1={rs1}, mode1={mode1}")
+                
+                # КРИТИЧНО: Для LDRR операнд [R5] должен быть INDIRECT_REGISTER
+                # Но если режим неправильный, исправляем его
+                if mode1 != AddressingMode.INDIRECT_REGISTER:
+                    # Если операнд начинается с [ и заканчивается на ], и внутри R0-R7
+                    if rs1_str.startswith('[') and rs1_str.endswith(']'):
+                        inner = rs1_str[1:-1].strip().upper()
+                        if inner.startswith('R') and len(inner) >= 2:
+                            # Извлекаем номер регистра
+                            try:
+                                reg_num = int(inner[1:])
+                                if 0 <= reg_num <= 7:
+                                    rs1 = reg_num
+                                    mode1 = AddressingMode.INDIRECT_REGISTER
+                                    print(f"DEBUG LDRR PARSE FIX: Исправлен режим адресации, rs1={rs1}, mode1={mode1}")
+                            except ValueError:
+                                pass
+                
                 # Получаем адрес из регистра rs1
-                addr_reg_value = self._get_operand_value(rs1, mode1)
-                # Ограничиваем адрес 16-битным диапазоном
-                addr = addr_reg_value & 0xFFFF
+                # КРИТИЧНО: Для LDRR операнд [R5] означает "прочитать из памяти по адресу, который находится в регистре R5"
+                # Поэтому нужно:
+                # 1. Получить значение регистра rs1 (это адрес)
+                # 2. Прочитать значение из памяти по этому адресу
                 
-                # КРИТИЧНО: Проверяем память ПЕРЕД чтением
-                print(f"DEBUG LDRR START: rs1={rs1}, rs1_value=0x{addr_reg_value:04X}, addr=0x{addr:04X}")
-                print(f"  Memory exists: {self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
-                if self.memory.ram and addr >= 0x0100 and addr <= 0x0107:
-                    print(f"  DEBUG LDRR: Проверка памяти задачи 1 ПЕРЕД чтением:")
-                    for check_addr in [0x0100, 0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107]:
-                        if check_addr < len(self.memory.ram):
-                            check_val = self.memory.ram[check_addr]
-                            print(f"    memory.ram[0x{check_addr:04X}] = {check_val} (0x{check_val:04X})")
+                # Инициализируем переменные
+                addr_reg_value = 0
+                addr = 0
+                mem_val = 0
                 
-                # Проверяем, что адрес в пределах памяти
-                if addr < 0:
-                    print(f"ERROR LDRR: Negative address 0x{addr:04X}")
+                # Всегда используем REGISTER режим для получения значения регистра (адреса)
+                # независимо от того, как был распарсен операнд
+                if not self.processor.registers:
+                    print(f"ERROR LDRR: Регистры не инициализированы!")
                     mem_val = 0
-                elif addr >= len(self.memory.ram):
-                    print(f"ERROR LDRR: Address 0x{addr:04X} out of bounds (memory_size=0x{len(self.memory.ram):04X})")
-                    print(f"  Memory size: {len(self.memory.ram)}, required: >= 0x{addr + 1:04X}")
+                elif rs1 < 0 or rs1 >= len(self.processor.registers):
+                    print(f"ERROR LDRR: Неверный номер регистра rs1={rs1}, registers_count={len(self.processor.registers)}")
                     mem_val = 0
                 else:
-                    # Читаем значение из памяти напрямую
-                    raw_val = self.memory.ram[addr]
-                    mem_val = int(raw_val) & 0xFFFF
-                    print(f"DEBUG LDRR: rd={rd}, rs1={rs1}, rs1_value=0x{addr_reg_value:04X}, addr=0x{addr:04X}, raw_value={raw_val}, memory[0x{addr:04X}]=0x{mem_val:04X} (decimal {mem_val})")
-                    print(f"  Memory check: memory.ram exists={self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
-                    # Дополнительная проверка для задачи 1
-                    if addr >= 0x0100 and addr <= 0x0107:
-                        print(f"  DEBUG LDRR TASK1: Читаем из адреса 0x{addr:04X}, значение={mem_val} (0x{mem_val:04X})")
-                        if mem_val == 0:
-                            print(f"  WARNING LDRR TASK1: Прочитано 0 из адреса 0x{addr:04X}, но ожидалось значение элемента массива!")
-                            print(f"  WARNING LDRR TASK1: Проверяем все адреса задачи 1:")
-                            for check_addr in [0x0100, 0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107]:
-                                if check_addr < len(self.memory.ram):
-                                    check_val = self.memory.ram[check_addr]
-                                    print(f"    memory.ram[0x{check_addr:04X}] = {check_val} (0x{check_val:04X})")
+                    # Получаем значение регистра rs1 (это адрес)
+                    addr_reg_value = self.processor.registers[rs1]
+                    print(f"DEBUG LDRR: Получено значение регистра R{rs1}=0x{addr_reg_value:04X} (используется как адрес)")
+                    
+                    # Ограничиваем адрес 16-битным диапазоном
+                    addr = addr_reg_value & 0xFFFF
+                    
+                    # КРИТИЧНО: Проверяем память ПЕРЕД чтением
+                    print(f"DEBUG LDRR START: rs1={rs1}, rs1_value=0x{addr_reg_value:04X}, addr=0x{addr:04X}")
+                    print(f"  Memory exists: {self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
+                    if self.memory.ram and addr >= 0x0100 and addr <= 0x0107:
+                        print(f"  DEBUG LDRR: Проверка памяти задачи 1 ПЕРЕД чтением:")
+                        for check_addr in [0x0100, 0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107]:
+                            if check_addr < len(self.memory.ram):
+                                check_val = self.memory.ram[check_addr]
+                                print(f"    memory.ram[0x{check_addr:04X}] = {check_val} (0x{check_val:04X})")
+                    
+                    # Проверяем, что адрес в пределах памяти
+                    if addr < 0:
+                        print(f"ERROR LDRR: Negative address 0x{addr:04X}")
+                        mem_val = 0
+                    elif not self.memory.ram:
+                        print(f"ERROR LDRR: Память не инициализирована!")
+                        mem_val = 0
+                    elif addr >= len(self.memory.ram):
+                        print(f"ERROR LDRR: Address 0x{addr:04X} out of bounds (memory_size=0x{len(self.memory.ram):04X})")
+                        print(f"  Memory size: {len(self.memory.ram)}, required: >= 0x{addr + 1:04X}")
+                        mem_val = 0
+                    else:
+                        # Читаем значение из памяти напрямую
+                        raw_val = self.memory.ram[addr]
+                        mem_val = int(raw_val) & 0xFFFF
+                        print(f"DEBUG LDRR: rd={rd}, rs1={rs1}, rs1_value=0x{addr_reg_value:04X}, addr=0x{addr:04X}, raw_value={raw_val}, memory[0x{addr:04X}]=0x{mem_val:04X} (decimal {mem_val})")
+                        print(f"  Memory check: memory.ram exists={self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
+                        # Дополнительная проверка для задачи 1
+                        if addr >= 0x0100 and addr <= 0x0107:
+                            print(f"  DEBUG LDRR TASK1: Читаем из адреса 0x{addr:04X}, значение={mem_val} (0x{mem_val:04X})")
+                            if mem_val == 0:
+                                print(f"  WARNING LDRR TASK1: Прочитано 0 из адреса 0x{addr:04X}, но ожидалось значение элемента массива!")
+                                print(f"  WARNING LDRR TASK1: Проверяем все адреса задачи 1:")
+                                for check_addr in [0x0100, 0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107]:
+                                    if check_addr < len(self.memory.ram):
+                                        check_val = self.memory.ram[check_addr]
+                                        print(f"    memory.ram[0x{check_addr:04X}] = {check_val} (0x{check_val:04X})")
                 
                 # Обновляем регистр
                 self._update_register(rd, mem_val)
@@ -506,7 +603,20 @@ class RISCProcessor:
                 rs1, mode_rs1 = self._parse_operand(operands[0])
                 addr, mode_addr = self._parse_operand(operands[1])
                 val1 = self._get_operand_value(rs1, mode_rs1)
+                print(f"DEBUG STR START: rs1={rs1}, mode_rs1={mode_rs1}, rs1_value=0x{val1:04X} (decimal {val1}), addr=0x{addr:04X}, mode_addr={mode_addr}")
+                print(f"  Memory before STR: exists={self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
+                if self.memory.ram and addr < len(self.memory.ram):
+                    old_val = self.memory.ram[addr]
+                    print(f"  Memory[0x{addr:04X}] before STR: 0x{old_val:04X} (decimal {old_val})")
                 self._set_operand_value(addr, val1, mode_addr)
+                # Проверяем, что данные действительно записались
+                if self.memory.ram and addr < len(self.memory.ram):
+                    new_val = self.memory.ram[addr]
+                    print(f"DEBUG STR AFTER: Memory[0x{addr:04X}] after STR: 0x{new_val:04X} (decimal {new_val}), expected=0x{val1:04X}")
+                    if new_val != (val1 & 0xFFFF):
+                        print(f"ERROR STR: Данные не записались! Ожидалось 0x{val1:04X}, получено 0x{new_val:04X}")
+                else:
+                    print(f"ERROR STR: Адрес 0x{addr:04X} вне границ памяти! size={len(self.memory.ram) if self.memory.ram else 0}")
             else:
                 raise Exception(f"STR requires 2 operands: STR rs1, [address]")
             
@@ -614,6 +724,12 @@ class RISCProcessor:
         if not self.compiled_code or self.processor.program_counter >= len(self.compiled_code):
             self.processor.is_halted = True
             return False
+        
+        # КРИТИЧНО: Убеждаемся, что память инициализирована перед выполнением шага
+        if not self.memory.ram:
+            min_size = max(0x0200, self.memory_size)
+            self.memory.ram = [0] * min_size
+            print(f"DEBUG step: Память не инициализирована, создана память размером {min_size}")
         
         # Получаем текущую команду
         instruction_line = self.compiled_code[self.processor.program_counter]
@@ -783,7 +899,12 @@ class RISCProcessor:
         if self.memory.ram and len(self.memory.ram) > 0x0100:
             check_val = self.memory.ram[0x0100]
             if check_val != 0:
-                print(f"DEBUG get_state: Память содержит данные задачи, ram[0x0100]={check_val} (0x{check_val:04X})")
+                print(f"DEBUG get_state: Память содержит данные, ram[0x0100]={check_val} (0x{check_val:04X}), size={len(self.memory.ram)}")
+        
+        # КРИТИЧНО: Убеждаемся, что память инициализирована перед сериализацией
+        if not self.memory.ram:
+            print(f"WARNING get_state: Память не инициализирована, создаем пустую память")
+            self.memory.ram = [0] * self.memory_size
         
         # Гарантируем, что история правильно сериализуется
         # Преобразуем каждый элемент истории, чтобы убедиться, что все значения - это базовые типы Python
@@ -835,7 +956,9 @@ class RISCProcessor:
                 "cycles": self.processor.cycles
             },
             "memory": {
-                "ram": [int(r) & 0xFFFF for r in self.memory.ram] if self.memory.ram else [],  # 16-битные значения
+                # КРИТИЧНО: Создаем новый список для сериализации, чтобы Pydantic видел изменения
+                # Убеждаемся, что память инициализирована
+                "ram": [int(r) & 0xFFFF for r in (self.memory.ram if self.memory.ram else [])],  # 16-битные значения
                 "history": history_serialized
             },
             "source_code": self.source_code,

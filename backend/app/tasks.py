@@ -280,7 +280,9 @@ HALT
                     # Присваиваем исправленную память (создаем новый объект для Pydantic)
                     from .models import MemoryState
                     processor.memory = MemoryState(ram=fixed_ram, history=processor.memory.history)
-                    print(f"FORCE FIX: Память исправлена, проверка: memory.ram[0x0100]={processor.memory.ram[0x0100]}, memory.ram[0x0107]={processor.memory.ram[0x0107] if 0x0107 < len(processor.memory.ram) else 'OUT_OF_BOUNDS'}")
+                    last_addr = 0x0100 + len(elements)
+                    last_val = processor.memory.ram[last_addr] if last_addr < len(processor.memory.ram) else 'OUT_OF_BOUNDS'
+                    print(f"FORCE FIX: Память исправлена, проверка: memory.ram[0x0100]={processor.memory.ram[0x0100]}, memory.ram[0x{last_addr:04X}]={last_val}")
                 else:
                     print(f"OK: Все данные успешно записаны в память")
             else:
@@ -328,8 +330,19 @@ HALT
         
         try:
             if task_id == 1:  # Сумма массива
-                # Ожидаемая сумма: 10+20+30+40+50+60+70 = 280
-                expected_sum = 280
+                # Вычисляем ожидаемую сумму динамически из test_data
+                test_data = task["test_data"]
+                if not test_data or len(test_data) < 2:
+                    result["error"] = f"Invalid test_data for task 1: {test_data}"
+                    return result
+                
+                # Формат: [размер, элемент1, элемент2, ...]
+                size = test_data[0]
+                elements = test_data[1:1 + size]  # Пропускаем размер, берем только элементы
+                
+                # Вычисляем ожидаемую сумму элементов
+                expected_sum = sum(elements)
+                
                 # Получаем результат из R0 (аккумулятор)
                 actual_sum = processor.processor.registers[0]
                 

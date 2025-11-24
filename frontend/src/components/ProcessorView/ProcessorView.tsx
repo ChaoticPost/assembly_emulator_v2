@@ -137,14 +137,55 @@ export const ProcessorView: React.FC = () => {
 
   // Функция для формирования строки результата задачи 1
   const formatTask1Result = useMemo(() => {
-    if (!taskTestData || taskTestData.length < 2 || current_task !== 1) {
+    if (current_task !== 1) {
       return null;
     }
     
-    // Формат: [размер, элемент1, элемент2, ...]
-    const size = taskTestData[0];
-    const elements = taskTestData.slice(1, 1 + size);
-    const sum = elements.reduce((acc, val) => acc + val, 0);
+    // Сначала пытаемся получить данные из памяти (для шаблона с ручной инициализацией)
+    let size: number | null = null;
+    let elements: number[] = [];
+    
+    if (state.memory.ram && state.memory.ram.length > 0x0107) {
+      // Читаем размер массива из памяти по адресу 0x0100
+      const sizeValue = state.memory.ram[0x0100];
+      if (sizeValue !== undefined && sizeValue !== null && sizeValue > 0 && sizeValue <= 15) {
+        size = sizeValue;
+        // Читаем элементы массива из памяти по адресам 0x0101-0x0107
+        elements = [];
+        for (let i = 1; i <= size; i++) {
+          const addr = 0x0100 + i;
+          if (addr < state.memory.ram.length) {
+            const value = state.memory.ram[addr];
+            if (value !== undefined && value !== null) {
+              // Преобразуем в 16-битное беззнаковое число
+              const unsignedValue = (value >>> 0) & 0xFFFF;
+              // Если значение > 32767, считаем его отрицательным (дополнительный код)
+              const signedValue = unsignedValue > 32767 ? unsignedValue - 65536 : unsignedValue;
+              elements.push(signedValue);
+            } else {
+              elements.push(0);
+            }
+          } else {
+            elements.push(0);
+          }
+        }
+      }
+    }
+    
+    // Если данные из памяти не получены, используем test_data (для примера с автоматической загрузкой)
+    if (!size || elements.length === 0) {
+      if (!taskTestData || taskTestData.length < 2) {
+        return null;
+      }
+      // Формат: [размер, элемент1, элемент2, ...]
+      size = taskTestData[0];
+      elements = taskTestData.slice(1, 1 + size);
+    }
+    
+    if (elements.length === 0) {
+      return null;
+    }
+    
     const actualSum = state.processor.registers[0] || 0;
     
     // Формируем строку: элемент1+элемент2+... = сумма (hex)
@@ -152,7 +193,7 @@ export const ProcessorView: React.FC = () => {
     const hexSum = formatValue(actualSum, true);
     
     return `${elementsStr} = ${actualSum} (${hexSum})`;
-  }, [taskTestData, current_task, state.processor.registers[0]]);
+  }, [taskTestData, current_task, state.processor.registers[0], state.memory.ram]);
 
   return (
     <div className="processor-view-container">

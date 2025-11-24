@@ -157,6 +157,106 @@ class RISCEmulator:
                     else:
                         print(f"DEBUG load_task: Все данные задачи 1 корректны ✓")
             
+            # КРИТИЧНО: Принудительно проверяем и исправляем данные для задачи 2
+            elif task_id == 2:
+                # Получаем ожидаемые данные из test_data задачи
+                test_data = task["test_data"]
+                if not test_data or len(test_data) < 2:
+                    print(f"DEBUG load_task: WARNING: test_data для задачи 2 некорректно: {test_data}")
+                else:
+                    # Формат: [size_a, a1..aN, size_b, b1..bM]
+                    size_a = test_data[0]
+                    a_vals = test_data[1:1 + size_a]
+                    size_b = test_data[1 + size_a]
+                    b_vals = test_data[2 + size_a:2 + size_a + size_b]
+                    
+                    needs_fix = False
+                    
+                    # Вычисляем требуемый размер памяти
+                    required_size = max(0x020A, 0x030A) + 2
+                    if len(self.processor.memory.ram) < required_size:
+                        print(f"DEBUG load_task: Расширяем память до {required_size}")
+                        new_ram = list(self.processor.memory.ram) if self.processor.memory.ram else [0] * required_size
+                        while len(new_ram) < required_size:
+                            new_ram.append(0)
+                        self.processor.memory.ram = new_ram
+                    
+                    # Проверяем размер массива A
+                    if 0x0200 < len(self.processor.memory.ram):
+                        actual_size_a = self.processor.memory.ram[0x0200]
+                        if actual_size_a != size_a:
+                            print(f"DEBUG load_task: ОШИБКА на адресе 0x0200: ожидалось {size_a}, получено {actual_size_a}")
+                            needs_fix = True
+                        else:
+                            print(f"DEBUG load_task: OK на адресе 0x0200: {actual_size_a} (0x{actual_size_a:04X}) ✓")
+                    
+                    # Проверяем элементы массива A
+                    for i, expected_val in enumerate(a_vals):
+                        addr = 0x0200 + i + 1
+                        if addr < len(self.processor.memory.ram):
+                            actual_val = self.processor.memory.ram[addr]
+                            if actual_val != expected_val:
+                                print(f"DEBUG load_task: ОШИБКА на адресе 0x{addr:04X} (A[{i}]): ожидалось {expected_val}, получено {actual_val}")
+                                needs_fix = True
+                        else:
+                            print(f"DEBUG load_task: ОШИБКА: адрес 0x{addr:04X} вне границ памяти!")
+                            needs_fix = True
+                    
+                    # Проверяем размер массива B
+                    if 0x0300 < len(self.processor.memory.ram):
+                        actual_size_b = self.processor.memory.ram[0x0300]
+                        if actual_size_b != size_b:
+                            print(f"DEBUG load_task: ОШИБКА на адресе 0x0300: ожидалось {size_b}, получено {actual_size_b}")
+                            needs_fix = True
+                        else:
+                            print(f"DEBUG load_task: OK на адресе 0x0300: {actual_size_b} (0x{actual_size_b:04X}) ✓")
+                    
+                    # Проверяем элементы массива B
+                    for i, expected_val in enumerate(b_vals):
+                        addr = 0x0300 + i + 1
+                        if addr < len(self.processor.memory.ram):
+                            actual_val = self.processor.memory.ram[addr]
+                            if actual_val != expected_val:
+                                print(f"DEBUG load_task: ОШИБКА на адресе 0x{addr:04X} (B[{i}]): ожидалось {expected_val}, получено {actual_val}")
+                                needs_fix = True
+                        else:
+                            print(f"DEBUG load_task: ОШИБКА: адрес 0x{addr:04X} вне границ памяти!")
+                            needs_fix = True
+                    
+                    # Принудительно исправляем, если нужно
+                    if needs_fix:
+                        print(f"DEBUG load_task: Принудительно исправляем память для задачи 2")
+                        fixed_ram = list(self.processor.memory.ram) if self.processor.memory.ram else [0] * required_size
+                        while len(fixed_ram) < required_size:
+                            fixed_ram.append(0)
+                        
+                        # Устанавливаем размер массива A
+                        fixed_ram[0x0200] = int(size_a) & 0xFFFF
+                        print(f"DEBUG load_task: Установлено fixed_ram[0x0200] = {size_a} (0x{size_a:04X})")
+                        
+                        # Устанавливаем элементы массива A
+                        for i, expected_val in enumerate(a_vals):
+                            addr = 0x0200 + i + 1
+                            fixed_ram[addr] = int(expected_val) & 0xFFFF
+                            print(f"DEBUG load_task: Установлено fixed_ram[0x{addr:04X}] (A[{i}]) = {expected_val} (0x{expected_val:04X})")
+                        
+                        # Устанавливаем размер массива B
+                        fixed_ram[0x0300] = int(size_b) & 0xFFFF
+                        print(f"DEBUG load_task: Установлено fixed_ram[0x0300] = {size_b} (0x{size_b:04X})")
+                        
+                        # Устанавливаем элементы массива B
+                        for i, expected_val in enumerate(b_vals):
+                            addr = 0x0300 + i + 1
+                            fixed_ram[addr] = int(expected_val) & 0xFFFF
+                            print(f"DEBUG load_task: Установлено fixed_ram[0x{addr:04X}] (B[{i}]) = {expected_val} (0x{expected_val:04X})")
+                        
+                        # Создаем новый объект MemoryState для Pydantic
+                        from .models import MemoryState
+                        self.processor.memory = MemoryState(ram=fixed_ram, history=self.processor.memory.history)
+                        print(f"DEBUG load_task: Память исправлена для задачи 2, проверка: memory.ram[0x0200]={self.processor.memory.ram[0x0200]}, memory.ram[0x0300]={self.processor.memory.ram[0x0300]}")
+                    else:
+                        print(f"DEBUG load_task: Все данные задачи 2 корректны ✓")
+            
             self.current_task = task_id
             
             return {

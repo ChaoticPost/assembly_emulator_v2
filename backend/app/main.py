@@ -16,19 +16,26 @@ from .emulator import RISCEmulator
 # Глобальный объект эмулятора
 emulator = None
 
-def has_manual_array_initialization(source_code: str) -> bool:
+def has_manual_array_initialization(source_code: str, task_id: int = None) -> bool:
     """
-    Определяет, содержит ли исходный код ручную инициализацию массива.
+    Определяет, содержит ли исходный код ручную инициализацию массива(ов).
     
-    Проверяет наличие команд STR для записи:
+    Для задачи 1 проверяет наличие команд STR для записи:
     - Размера массива по адресу 0x0100 (или 256 в десятичной)
     - Элементов массива по адресам 0x0101-0x010F (или 257-271 в десятичной)
     
+    Для задачи 2 проверяет наличие команд STR для записи:
+    - Размера массива A по адресу 0x0200 (или 512 в десятичной)
+    - Элементов массива A по адресам 0x0201-0x020A (или 513-522 в десятичной)
+    - Размера массива B по адресу 0x0300 (или 768 в десятичной)
+    - Элементов массива B по адресам 0x0301-0x030A (или 769-778 в десятичной)
+    
     Args:
         source_code: Исходный код на ассемблере
+        task_id: ID задачи (1 или 2) для определения типа проверки
         
     Returns:
-        True, если код содержит ручную инициализацию массива
+        True, если код содержит ручную инициализацию массива(ов)
     """
     if not source_code:
         return False
@@ -45,47 +52,107 @@ def has_manual_array_initialization(source_code: str) -> bool:
             normalized_lines.append(line)
     
     # Проверяем каждую строку на наличие STR команд с нужными адресами
-    has_size_init = False
-    has_element_init = False
-    
-    for line in normalized_lines:
-        line_upper = line.upper()
-        # Пропускаем строки без STR
-        if 'STR' not in line_upper:
-            continue
+    if task_id == 1:
+        # Проверка для задачи 1
+        has_size_init = False
+        has_element_init = False
         
-        # Извлекаем адрес из строки вида "STR R7, [0x0100]" или "STR R7, [256]"
-        # Ищем паттерн [адрес] после запятой
-        address_match = re.search(r'STR\s+R\d+\s*,\s*\[([^\]]+)\]', line_upper)
-        if address_match:
-            address_str = address_match.group(1).strip()
-            
-            # Парсим адрес (может быть hex или decimal)
-            try:
-                if address_str.startswith('0X'):
-                    address = int(address_str, 16)
-                else:
-                    address = int(address_str)
-                
-                # Проверяем адрес размера массива (0x0100 = 256)
-                if address == 0x0100 or address == 256:
-                    has_size_init = True
-                    print(f"DEBUG has_manual_array_initialization: Найдена запись размера: {line.strip()}")
-                
-                # Проверяем адреса элементов массива (0x0101-0x010F = 257-271)
-                if (0x0101 <= address <= 0x010F) or (257 <= address <= 271):
-                    has_element_init = True
-                    print(f"DEBUG has_manual_array_initialization: Найдена запись элемента: {line.strip()}, адрес=0x{address:04X}")
-            except ValueError:
-                # Не удалось распарсить адрес, пропускаем
+        for line in normalized_lines:
+            line_upper = line.upper()
+            # Пропускаем строки без STR
+            if 'STR' not in line_upper:
                 continue
+            
+            # Извлекаем адрес из строки вида "STR R7, [0x0100]" или "STR R7, [256]"
+            address_match = re.search(r'STR\s+R\d+\s*,\s*\[([^\]]+)\]', line_upper)
+            if address_match:
+                address_str = address_match.group(1).strip()
+                
+                # Парсим адрес (может быть hex или decimal)
+                try:
+                    if address_str.startswith('0X'):
+                        address = int(address_str, 16)
+                    else:
+                        address = int(address_str)
+                    
+                    # Проверяем адрес размера массива (0x0100 = 256)
+                    if address == 0x0100 or address == 256:
+                        has_size_init = True
+                        print(f"DEBUG has_manual_array_initialization (task 1): Найдена запись размера: {line.strip()}")
+                    
+                    # Проверяем адреса элементов массива (0x0101-0x010F = 257-271)
+                    if (0x0101 <= address <= 0x010F) or (257 <= address <= 271):
+                        has_element_init = True
+                        print(f"DEBUG has_manual_array_initialization (task 1): Найдена запись элемента: {line.strip()}, адрес=0x{address:04X}")
+                except ValueError:
+                    # Не удалось распарсить адрес, пропускаем
+                    continue
+        
+        # Если найдена запись размера И хотя бы одного элемента - это ручная инициализация
+        result = has_size_init and has_element_init
+        print(f"DEBUG has_manual_array_initialization (task 1): has_size_init={has_size_init}, has_element_init={has_element_init}, result={result}")
+        return result
     
-    # Если найдена запись размера И хотя бы одного элемента - это ручная инициализация
-    result = has_size_init and has_element_init
+    elif task_id == 2:
+        # Проверка для задачи 2
+        has_size_a_init = False
+        has_element_a_init = False
+        has_size_b_init = False
+        has_element_b_init = False
+        
+        for line in normalized_lines:
+            line_upper = line.upper()
+            # Пропускаем строки без STR
+            if 'STR' not in line_upper:
+                continue
+            
+            # Извлекаем адрес из строки вида "STR R7, [0x0200]" или "STR R7, [512]"
+            address_match = re.search(r'STR\s+R\d+\s*,\s*\[([^\]]+)\]', line_upper)
+            if address_match:
+                address_str = address_match.group(1).strip()
+                
+                # Парсим адрес (может быть hex или decimal)
+                try:
+                    if address_str.startswith('0X'):
+                        address = int(address_str, 16)
+                    else:
+                        address = int(address_str)
+                    
+                    # Проверяем адрес размера массива A (0x0200 = 512)
+                    if address == 0x0200 or address == 512:
+                        has_size_a_init = True
+                        print(f"DEBUG has_manual_array_initialization (task 2): Найдена запись размера массива A: {line.strip()}")
+                    
+                    # Проверяем адреса элементов массива A (0x0201-0x020A = 513-522)
+                    if (0x0201 <= address <= 0x020A) or (513 <= address <= 522):
+                        has_element_a_init = True
+                        print(f"DEBUG has_manual_array_initialization (task 2): Найдена запись элемента массива A: {line.strip()}, адрес=0x{address:04X}")
+                    
+                    # Проверяем адрес размера массива B (0x0300 = 768)
+                    if address == 0x0300 or address == 768:
+                        has_size_b_init = True
+                        print(f"DEBUG has_manual_array_initialization (task 2): Найдена запись размера массива B: {line.strip()}")
+                    
+                    # Проверяем адреса элементов массива B (0x0301-0x030A = 769-778)
+                    if (0x0301 <= address <= 0x030A) or (769 <= address <= 778):
+                        has_element_b_init = True
+                        print(f"DEBUG has_manual_array_initialization (task 2): Найдена запись элемента массива B: {line.strip()}, адрес=0x{address:04X}")
+                except ValueError:
+                    # Не удалось распарсить адрес, пропускаем
+                    continue
+        
+        # Если найдена запись размера и элементов для обоих массивов - это ручная инициализация
+        result = (has_size_a_init and has_element_a_init) and (has_size_b_init and has_element_b_init)
+        print(f"DEBUG has_manual_array_initialization (task 2): has_size_a={has_size_a_init}, has_element_a={has_element_a_init}, has_size_b={has_size_b_init}, has_element_b={has_element_b_init}, result={result}")
+        return result
     
-    print(f"DEBUG has_manual_array_initialization: has_size_init={has_size_init}, has_element_init={has_element_init}, result={result}")
-    
-    return result
+    else:
+        # Если task_id не указан, проверяем оба варианта
+        # Проверка для задачи 1
+        has_task1 = has_manual_array_initialization(source_code, task_id=1)
+        # Проверка для задачи 2
+        has_task2 = has_manual_array_initialization(source_code, task_id=2)
+        return has_task1 or has_task2
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -142,9 +209,10 @@ async def compile_code(request: CompileRequest):
         raise HTTPException(status_code=500, detail="Emulator not initialized")
     
     try:
-        # Проверяем, содержит ли код ручную инициализацию массива
-        has_manual_init = has_manual_array_initialization(request.source_code)
-        print(f"DEBUG compile: has_manual_array_initialization={has_manual_init}")
+        # Проверяем, содержит ли код ручную инициализацию массива(ов)
+        # Передаем task_id для правильной проверки
+        has_manual_init = has_manual_array_initialization(request.source_code, task_id=request.task_id)
+        print(f"DEBUG compile: has_manual_array_initialization (task_id={request.task_id})={has_manual_init}")
         
         # Если указан task_id, загружаем данные задачи ПЕРЕД компиляцией
         # НО только если код НЕ содержит ручную инициализацию
@@ -206,7 +274,12 @@ async def compile_code(request: CompileRequest):
             
             # Сохраняем память ПЕРЕД load_program
             ram_before_load_program = list(emulator.processor.memory.ram) if emulator.processor.memory.ram else []
-            print(f"DEBUG compile: Память ПЕРЕД load_program: length={len(ram_before_load_program)}, ram[0x0100]={ram_before_load_program[0x0100] if ram_before_load_program and 0x0100 < len(ram_before_load_program) else 'OUT_OF_BOUNDS'}")
+            if request.task_id == 1:
+                print(f"DEBUG compile: Память ПЕРЕД load_program: length={len(ram_before_load_program)}, ram[0x0100]={ram_before_load_program[0x0100] if ram_before_load_program and 0x0100 < len(ram_before_load_program) else 'OUT_OF_BOUNDS'}")
+            elif request.task_id == 2:
+                print(f"DEBUG compile: Память ПЕРЕД load_program: length={len(ram_before_load_program)}, ram[0x0200]={ram_before_load_program[0x0200] if ram_before_load_program and 0x0200 < len(ram_before_load_program) else 'OUT_OF_BOUNDS'}, ram[0x0300]={ram_before_load_program[0x0300] if ram_before_load_program and 0x0300 < len(ram_before_load_program) else 'OUT_OF_BOUNDS'}")
+            else:
+                print(f"DEBUG compile: Память ПЕРЕД load_program: length={len(ram_before_load_program)}")
             
             # Загружаем программу в эмулятор для пошагового выполнения
             # ВАЖНО: load_program НЕ сбрасывает память, только регистры и историю
@@ -214,7 +287,12 @@ async def compile_code(request: CompileRequest):
             
             # Проверяем память ПОСЛЕ load_program
             ram_after_load_program = list(emulator.processor.memory.ram) if emulator.processor.memory.ram else []
-            print(f"DEBUG compile: Память ПОСЛЕ load_program: length={len(ram_after_load_program)}, ram[0x0100]={ram_after_load_program[0x0100] if ram_after_load_program and 0x0100 < len(ram_after_load_program) else 'OUT_OF_BOUNDS'}")
+            if request.task_id == 1:
+                print(f"DEBUG compile: Память ПОСЛЕ load_program: length={len(ram_after_load_program)}, ram[0x0100]={ram_after_load_program[0x0100] if ram_after_load_program and 0x0100 < len(ram_after_load_program) else 'OUT_OF_BOUNDS'}")
+            elif request.task_id == 2:
+                print(f"DEBUG compile: Память ПОСЛЕ load_program: length={len(ram_after_load_program)}, ram[0x0200]={ram_after_load_program[0x0200] if ram_after_load_program and 0x0200 < len(ram_after_load_program) else 'OUT_OF_BOUNDS'}, ram[0x0300]={ram_after_load_program[0x0300] if ram_after_load_program and 0x0300 < len(ram_after_load_program) else 'OUT_OF_BOUNDS'}")
+            else:
+                print(f"DEBUG compile: Память ПОСЛЕ load_program: length={len(ram_after_load_program)}")
             
             # Восстанавливаем память
             # Если была загружена задача (нет ручной инициализации) - восстанавливаем данные задачи
@@ -226,19 +304,37 @@ async def compile_code(request: CompileRequest):
                     if len(saved_ram) < saved_ram_size:
                         saved_ram.extend([0] * (saved_ram_size - len(saved_ram)))
                     emulator.processor.memory.ram = list(saved_ram)  # Создаем новый список для Pydantic
-                    print(f"DEBUG compile: Memory restored from saved_ram (with task data), size={len(emulator.processor.memory.ram)}, ram[0x0100]={emulator.processor.memory.ram[0x0100] if 0x0100 < len(emulator.processor.memory.ram) else 'OUT_OF_BOUNDS'}")
+                    print(f"DEBUG compile: Memory restored from saved_ram (with task data), size={len(emulator.processor.memory.ram)}")
                     # Проверяем, что данные задачи действительно восстановлены
-                    if 0x0100 < len(emulator.processor.memory.ram):
-                        check_val = emulator.processor.memory.ram[0x0100]
-                        print(f"DEBUG compile: Проверка восстановленной памяти ram[0x0100]={check_val} (0x{check_val:04X})")
-                        if check_val == 0:
-                            print(f"ERROR compile: Восстановленная память ram[0x0100] = 0, данные задачи потеряны!")
-                            # Пытаемся использовать ram_before_load_program как резерв
-                            if ram_before_load_program and len(ram_before_load_program) > 0 and 0x0100 < len(ram_before_load_program):
-                                backup_val = ram_before_load_program[0x0100]
-                                if backup_val != 0:
-                                    print(f"DEBUG compile: Используем резервную память ram_before_load_program, ram[0x0100]={backup_val}")
-                                    emulator.processor.memory.ram = list(ram_before_load_program)
+                    if request.task_id == 1:
+                        print(f"DEBUG compile: Проверка памяти для задачи 1: ram[0x0100]={emulator.processor.memory.ram[0x0100] if 0x0100 < len(emulator.processor.memory.ram) else 'OUT_OF_BOUNDS'}")
+                        if 0x0100 < len(emulator.processor.memory.ram):
+                            check_val = emulator.processor.memory.ram[0x0100]
+                            print(f"DEBUG compile: Проверка восстановленной памяти ram[0x0100]={check_val} (0x{check_val:04X})")
+                            if check_val == 0:
+                                print(f"ERROR compile: Восстановленная память ram[0x0100] = 0, данные задачи потеряны!")
+                                # Пытаемся использовать ram_before_load_program как резерв
+                                if ram_before_load_program and len(ram_before_load_program) > 0 and 0x0100 < len(ram_before_load_program):
+                                    backup_val = ram_before_load_program[0x0100]
+                                    if backup_val != 0:
+                                        print(f"DEBUG compile: Используем резервную память ram_before_load_program, ram[0x0100]={backup_val}")
+                                        emulator.processor.memory.ram = list(ram_before_load_program)
+                    elif request.task_id == 2:
+                        print(f"DEBUG compile: Проверка памяти для задачи 2: ram[0x0200]={emulator.processor.memory.ram[0x0200] if 0x0200 < len(emulator.processor.memory.ram) else 'OUT_OF_BOUNDS'}, ram[0x0300]={emulator.processor.memory.ram[0x0300] if 0x0300 < len(emulator.processor.memory.ram) else 'OUT_OF_BOUNDS'}")
+                        if 0x0200 < len(emulator.processor.memory.ram) and 0x0300 < len(emulator.processor.memory.ram):
+                            check_val_a = emulator.processor.memory.ram[0x0200]
+                            check_val_b = emulator.processor.memory.ram[0x0300]
+                            print(f"DEBUG compile: Проверка восстановленной памяти ram[0x0200]={check_val_a} (0x{check_val_a:04X}), ram[0x0300]={check_val_b} (0x{check_val_b:04X})")
+                            if check_val_a == 0 or check_val_b == 0:
+                                print(f"ERROR compile: Восстановленная память ram[0x0200]={check_val_a} или ram[0x0300]={check_val_b} = 0, данные задачи потеряны!")
+                                # Пытаемся использовать ram_before_load_program как резерв
+                                if ram_before_load_program and len(ram_before_load_program) > 0:
+                                    if 0x0200 < len(ram_before_load_program) and 0x0300 < len(ram_before_load_program):
+                                        backup_val_a = ram_before_load_program[0x0200]
+                                        backup_val_b = ram_before_load_program[0x0300]
+                                        if backup_val_a != 0 and backup_val_b != 0:
+                                            print(f"DEBUG compile: Используем резервную память ram_before_load_program, ram[0x0200]={backup_val_a}, ram[0x0300]={backup_val_b}")
+                                            emulator.processor.memory.ram = list(ram_before_load_program)
                 elif ram_before_load_program and len(ram_before_load_program) > 0:
                     # Если saved_ram пустая, используем ram_before_load_program
                     emulator.processor.memory.ram = list(ram_before_load_program)
@@ -281,6 +377,23 @@ async def compile_code(request: CompileRequest):
                         print(f"  memory.ram[0x{addr:04X}] = {val} (0x{val:04X})")
                     else:
                         print(f"  memory.ram[0x{addr:04X}] = OUT_OF_BOUNDS")
+            # Проверяем все элементы массивов для задачи 2
+            elif request.task_id == 2:
+                print(f"DEBUG compile: Проверка памяти для задачи 2:")
+                print(f"  Массив A:")
+                for addr in [0x0200, 0x0201, 0x0202, 0x0203, 0x0204, 0x0205]:
+                    if addr < len(state['memory']['ram']):
+                        val = state['memory']['ram'][addr]
+                        print(f"    memory.ram[0x{addr:04X}] = {val} (0x{val:04X})")
+                    else:
+                        print(f"    memory.ram[0x{addr:04X}] = OUT_OF_BOUNDS")
+                print(f"  Массив B:")
+                for addr in [0x0300, 0x0301, 0x0302, 0x0303, 0x0304, 0x0305]:
+                    if addr < len(state['memory']['ram']):
+                        val = state['memory']['ram'][addr]
+                        print(f"    memory.ram[0x{addr:04X}] = {val} (0x{val:04X})")
+                    else:
+                        print(f"    memory.ram[0x{addr:04X}] = OUT_OF_BOUNDS")
         
         return result
     except Exception as e:

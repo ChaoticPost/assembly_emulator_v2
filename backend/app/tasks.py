@@ -79,88 +79,48 @@ HALT
         """Программа для свертки двух массивов"""
         return """
 ; Программа для вычисления свертки двух массивов
-; Массив A: [2, 3, 1, 4, 5, 2, 3, 1, 4, 2] (10 элементов)
-; Массив B: [1, 2, 3, 1, 2, 3, 1, 2, 3, 1] (10 элементов)
-; Результат: скалярное произведение = 50
+; Массив A: [10, 2, 3, 1, 4, 5, 2, 3, 1, 4, 2] (размер=10, элементы: 2, 3, 1, 4, 5, 2, 3, 1, 4, 2)
+; Массив B: [10, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1] (размер=10, элементы: 1, 2, 3, 1, 2, 3, 1, 2, 3, 1)
+; Ожидаемый результат: 2*1 + 3*2 + 1*3 + 4*1 + 5*2 + 2*3 + 3*1 + 1*2 + 4*3 + 2*1 = 50
 
 ; Инициализация
-LDI R0, 0          ; R0 = 0 (аккумулятор)
-LDI R1, 0          ; R1 = 0 (индекс)
+LDI R0, 0          ; R0 = 0 (аккумулятор для свертки)
+LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x0200] и [0x0300] - размеры)
+LDI R2, 0x0200     ; R2 = базовый адрес массива A
+LDI R3, 0x0300     ; R3 = базовый адрес массива B
 
-; Загрузка массива A в память (адреса 0x1000-0x1009)
-LDI R2, 2
-STR R2, [0x1000]
-LDI R2, 3
-STR R2, [0x1001]
-LDI R2, 1
-STR R2, [0x1002]
-LDI R2, 4
-STR R2, [0x1003]
-LDI R2, 5
-STR R2, [0x1004]
-LDI R2, 2
-STR R2, [0x1005]
-LDI R2, 3
-STR R2, [0x1006]
-LDI R2, 1
-STR R2, [0x1007]
-LDI R2, 4
-STR R2, [0x1008]
-LDI R2, 2
-STR R2, [0x1009]
-
-; Загрузка массива B в память (адреса 0x1010-0x1019)
-LDI R2, 1
-STR R2, [0x1010]
-LDI R2, 2
-STR R2, [0x1011]
-LDI R2, 3
-STR R2, [0x1012]
-LDI R2, 1
-STR R2, [0x1013]
-LDI R2, 2
-STR R2, [0x1014]
-LDI R2, 3
-STR R2, [0x1015]
-LDI R2, 1
-STR R2, [0x1016]
-LDI R2, 2
-STR R2, [0x1017]
-LDI R2, 3
-STR R2, [0x1018]
-LDI R2, 1
-STR R2, [0x1019]
+; Загрузка размера массивов (размеры должны быть одинаковыми)
+LDR R4, [0x0200]   ; R4 = размер массива A (из [0x0200])
 
 ; Основной цикл свертки
-LDI R1, 0          ; R1 = 0 (индекс)
-
 LOOP_START:
-LDI R2, 10         ; R2 = 10 (размер массивов)
-CMP R1, R2         ; Сравнить индекс с размером
-JZ LOOP_END        ; Если индекс == размер, выйти из цикла
+; Сравниваем индекс с (размер + 1)
+; Если индекс == размер + 1, значит обработали все элементы, выходим
+ADD R5, R4, 1      ; R5 = размер + 1
+CMP R1, R5         ; Сравнить индекс с (размер + 1)
+JZ LOOP_END        ; Если индекс == размер + 1, выйти из цикла
 
-; Загрузить A[i]
-ADD R3, R1, 0x1000 ; R3 = R1 + 0x1000 (адрес A[i])
-LDRR R4, [R3]      ; R4 = A[i]
+; Вычисляем адрес текущего элемента массива A: базовый_адрес_A + индекс
+ADD R6, R2, R1     ; R6 = 0x0200 + индекс (адрес элемента A)
+LDRR R7, [R6]      ; R7 = A[i] (значение элемента массива A)
 
-; Загрузить B[i]
-ADD R3, R1, 0x1010 ; R3 = R1 + 0x1010 (адрес B[i])
-LDRR R5, [R3]      ; R5 = B[i]
+; Вычисляем адрес текущего элемента массива B: базовый_адрес_B + индекс
+ADD R6, R3, R1     ; R6 = 0x0300 + индекс (адрес элемента B)
+LDRR R6, [R6]      ; R6 = B[i] (значение элемента массива B)
 
-; Вычислить произведение
-MUL R6, R4, R5     ; R6 = A[i] * B[i]
+; Умножение A[i] × B[i]
+MUL R7, R7, R6     ; R7 = A[i] × B[i]
 
-; Добавить к сумме
-ADD R0, R0, R6     ; R0 = R0 + A[i] * B[i]
+; Добавляем произведение к свертке
+ADD R0, R0, R7     ; R0 = R0 + A[i] × B[i] (свертка)
 
-; Увеличить индекс
+; Увеличиваем индекс
 ADD R1, R1, 1      ; R1 = R1 + 1
 
 JMP LOOP_START     ; Переход к началу цикла
 
 LOOP_END:
-; Сохранить результат
-STR R0, [0x1100]   ; [0x1100] = результат
+; Результат в R0 (аккумулятор)
 HALT
         """.strip()
     
@@ -297,18 +257,67 @@ HALT
 
             print(f"Task 2 data: size_a={size_a}, a_vals={a_vals}, size_b={size_b}, b_vals={b_vals}")
 
-            # Загружаем массив A в память (0x1000-0x1009)
-            for i, v in enumerate(a_vals):
-                processor.memory.ram[0x1000 + i] = v
-                print(f"Stored A[{i}] = 0x{v:04X} at address 0x{0x1000 + i:04X}")
-
-            # Загружаем массив B в память (0x1010-0x1019)
-            for i, v in enumerate(b_vals):
-                processor.memory.ram[0x1010 + i] = v
-                print(f"Stored B[{i}] = 0x{v:04X} at address 0x{0x1010 + i:04X}")
+            # Убеждаемся, что память инициализирована
+            if not processor.memory.ram:
+                print(f"WARNING: memory.ram is None or empty, initializing")
+                processor.memory.ram = [0] * processor.memory_size
             
-            a_mem = [f"0x{v:04X}" for v in processor.memory.ram[0x1000:0x100A]]
-            b_mem = [f"0x{v:04X}" for v in processor.memory.ram[0x1010:0x101A]]
+            # Убеждаемся, что память достаточно большая
+            required_size = max(0x020A, 0x030A) + 2
+            current_size = len(processor.memory.ram) if processor.memory.ram else 0
+            if current_size < required_size:
+                print(f"WARNING: Memory too small ({current_size}), expanding to {required_size}")
+                new_ram = list(processor.memory.ram) if processor.memory.ram else [0] * processor.memory_size
+                new_ram.extend([0] * (required_size - len(new_ram)))
+                processor.memory.ram = new_ram
+            
+            # Создаем новый список памяти для гарантии обновления (Pydantic требует нового объекта)
+            new_ram = list(processor.memory.ram) if processor.memory.ram else [0] * max(required_size, processor.memory_size)
+            
+            # Гарантируем достаточный размер
+            while len(new_ram) < required_size:
+                new_ram.append(0)
+            
+            # Загружаем массив A в память (0x0200-0x020A)
+            # [0x0200] = размер массива A
+            new_ram[0x0200] = int(size_a) & 0xFFFF
+            print(f"Stored size A=0x{size_a:04X} (decimal {size_a}) at address 0x0200")
+            
+            # [0x0201..0x020A] = элементы массива A
+            for i, v in enumerate(a_vals):
+                addr = 0x0200 + i + 1
+                if addr < len(new_ram):
+                    new_ram[addr] = int(v) & 0xFFFF
+                    print(f"Stored A[{i}] = 0x{v:04X} (decimal {v}) at address 0x{addr:04X}")
+                else:
+                    print(f"ERROR: Address 0x{addr:04X} out of bounds! memory_size={len(new_ram)}")
+            
+            # Загружаем массив B в память (0x0300-0x030A)
+            # [0x0300] = размер массива B
+            new_ram[0x0300] = int(size_b) & 0xFFFF
+            print(f"Stored size B=0x{size_b:04X} (decimal {size_b}) at address 0x0300")
+            
+            # [0x0301..0x030A] = элементы массива B
+            for i, v in enumerate(b_vals):
+                addr = 0x0300 + i + 1
+                if addr < len(new_ram):
+                    new_ram[addr] = int(v) & 0xFFFF
+                    print(f"Stored B[{i}] = 0x{v:04X} (decimal {v}) at address 0x{addr:04X}")
+                else:
+                    print(f"ERROR: Address 0x{addr:04X} out of bounds! memory_size={len(new_ram)}")
+            
+            # Присваиваем новый список памяти (Pydantic увидит изменение)
+            processor.memory.ram = list(new_ram)
+            
+            # Проверяем, что данные действительно загружены
+            if 0x0200 < len(processor.memory.ram) and 0x0300 < len(processor.memory.ram):
+                verify_size_a = processor.memory.ram[0x0200]
+                verify_size_b = processor.memory.ram[0x0300]
+                print(f"VERIFY: memory.ram[0x0200] = {verify_size_a} (0x{verify_size_a:04X}), expected={size_a}")
+                print(f"VERIFY: memory.ram[0x0300] = {verify_size_b} (0x{verify_size_b:04X}), expected={size_b}")
+            
+            a_mem = [f"0x{v:04X}" for v in processor.memory.ram[0x0200:0x020B]] if len(processor.memory.ram) > 0x020A else []
+            b_mem = [f"0x{v:04X}" for v in processor.memory.ram[0x0300:0x030B]] if len(processor.memory.ram) > 0x030A else []
             print(f"Memory after setup: A={a_mem}, B={b_mem}")
         
         mem_hex = [f"0x{v:04X}" for v in processor.memory.ram[0x1000:0x1020]]
@@ -351,11 +360,23 @@ HALT
                 result["success"] = (expected_sum == actual_sum)
                 
             elif task_id == 2:  # Свертка массивов
-                # Ожидаемая свертка: 50
-                expected_conv = 50
+                # Вычисляем ожидаемую свертку динамически из test_data
+                test_data = task["test_data"]
+                if not test_data or len(test_data) < 2:
+                    result["error"] = f"Invalid test_data for task 2: {test_data}"
+                    return result
                 
-                # Получаем результат из памяти
-                actual_conv = processor.memory.ram[0x1100]
+                # Формат: [size_a, a1..aN, size_b, b1..bM]
+                size_a = test_data[0]
+                a_vals = test_data[1:1 + size_a]
+                size_b = test_data[1 + size_a]
+                b_vals = test_data[2 + size_a:2 + size_a + size_b]
+                
+                # Вычисляем ожидаемую свертку: Σ(A[i] × B[i])
+                expected_conv = sum(a_vals[i] * b_vals[i] for i in range(min(len(a_vals), len(b_vals))))
+                
+                # Получаем результат из R0 (аккумулятор)
+                actual_conv = processor.processor.registers[0]
                 
                 result["expected"] = expected_conv
                 result["actual"] = actual_conv

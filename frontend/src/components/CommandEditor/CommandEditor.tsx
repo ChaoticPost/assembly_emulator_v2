@@ -15,6 +15,7 @@ export const CommandEditor: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<boolean>(false);
   const [task1Variant, setTask1Variant] = useState<'example' | 'template' | null>(null);
+  const [task2Variant, setTask2Variant] = useState<'example' | 'template' | null>(null);
 
   const handleCodeChange = (code: string) => {
     setAssemblyCode(code);
@@ -57,6 +58,7 @@ export const CommandEditor: React.FC = () => {
       setSelectedTask(null);
       setSelectedTemplate(false);
       setTask1Variant(null);
+      setTask2Variant(null);
       setExampleCode('');
       await setCurrentTask(null); // ВАЖНО: сбрасываем current_task в store
     } else {
@@ -66,11 +68,19 @@ export const CommandEditor: React.FC = () => {
       if (taskId === 1) {
         // Для задачи 1 не загружаем пример автоматически, ждем выбора варианта
         setTask1Variant(null);
+        setTask2Variant(null);
+        setExampleCode('');
+        await setCurrentTask(null);
+      } else if (taskId === 2) {
+        // Для задачи 2 не загружаем пример автоматически, ждем выбора варианта
+        setTask1Variant(null);
+        setTask2Variant(null);
         setExampleCode('');
         await setCurrentTask(null);
       } else {
-        // Для задачи 2 загружаем пример сразу
+        // Для других задач загружаем пример сразу
         setTask1Variant(null);
+        setTask2Variant(null);
         await setCurrentTask(taskId); // ВАЖНО: устанавливаем current_task в store
         handleLoadTaskExample(taskId);
       }
@@ -94,6 +104,27 @@ export const CommandEditor: React.FC = () => {
       } else {
         // Загружаем шаблон
         handleLoadTemplate();
+      }
+    }
+  };
+
+  const handleTask2VariantSelect = async (variant: 'example' | 'template') => {
+    if (task2Variant === variant) {
+      // Если тот же вариант выбран, снимаем выбор
+      setTask2Variant(null);
+      setExampleCode('');
+      await setCurrentTask(null);
+    } else {
+      // Выбираем новый вариант
+      setTask2Variant(variant);
+      // Для обоих вариантов устанавливаем current_task = 2, чтобы результат отображался
+      await setCurrentTask(2);
+      if (variant === 'example') {
+        // Загружаем пример задачи 2
+        handleLoadTaskExample(2);
+      } else {
+        // Загружаем шаблон
+        handleLoadTask2Template();
       }
     }
   };
@@ -198,65 +229,50 @@ LOOP_END:
 ; Результат в R0 (аккумулятор)
 HALT`,
 
-      2: `; Программа 2: Свертка двух массивов
-; Массив A: [5, 1, 2, 3, 4, 5]
-; Массив B: [5, 5, 4, 3, 2, 1]
-; Ожидаемый результат: 1*5 + 2*4 + 3*3 + 4*2 + 5*1 = 35
+      2: `; Программа для вычисления свертки двух массивов
+; Массив A: [10, 2, 3, 1, 4, 5, 2, 3, 1, 4, 2] (размер=10, элементы: 2, 3, 1, 4, 5, 2, 3, 1, 4, 2)
+; Массив B: [10, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1] (размер=10, элементы: 1, 2, 3, 1, 2, 3, 1, 2, 3, 1)
+; Ожидаемый результат: 2*1 + 3*2 + 1*3 + 4*1 + 5*2 + 2*3 + 3*1 + 1*2 + 4*3 + 2*1 = 50
 
 ; Инициализация
-LDI R0, 0          ; R0 = 0 (аккумулятор для суммы свертки)
-LDI R1, 1          ; R1 = 1 (индекс)
-LDI R2, 0x1100     ; R2 = базовый адрес массива A
-LDI R3, 0x1200     ; R3 = базовый адрес массива B
+LDI R0, 0          ; R0 = 0 (аккумулятор для свертки)
+LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x0200] и [0x0300] - размеры)
+LDI R2, 0x0200     ; R2 = базовый адрес массива A
+LDI R3, 0x0300     ; R3 = базовый адрес массива B
 
-; Загрузка размера массива (размеры должны быть одинаковыми)
-LDR R4, [0x1100]   ; R4 = размер массива A
+; Загрузка размера массивов (размеры должны быть одинаковыми)
+LDR R4, [0x0200]   ; R4 = размер массива A (из [0x0200])
 
 ; Основной цикл свертки
-CONV_LOOP:
-; Проверка условия выхода
+LOOP_START:
+; Сравниваем индекс с (размер + 1)
+; Если индекс == размер + 1, значит обработали все элементы, выходим
 ADD R5, R4, 1      ; R5 = размер + 1
 CMP R1, R5         ; Сравнить индекс с (размер + 1)
-JZ CONV_END        ; Если равно, выйти
+JZ LOOP_END        ; Если индекс == размер + 1, выйти из цикла
 
-; Загрузка элемента из массива A
-ADD R6, R2, R1     ; R6 = адрес элемента A
-LDRR R7, [R6]      ; R7 = значение A[i]
+; Вычисляем адрес текущего элемента массива A: базовый_адрес_A + индекс
+ADD R6, R2, R1     ; R6 = 0x0200 + индекс (адрес элемента A)
+LDRR R7, [R6]      ; R7 = A[i] (значение элемента массива A)
 
-; Загрузка элемента из массива B
-ADD R6, R3, R1     ; R6 = адрес элемента B
-LDRR R6, [R6]      ; R6 = значение B[i]
+; Вычисляем адрес текущего элемента массива B: базовый_адрес_B + индекс
+ADD R6, R3, R1     ; R6 = 0x0300 + индекс (адрес элемента B)
+LDRR R6, [R6]      ; R6 = B[i] (значение элемента массива B)
 
-; Умножение A[i] * B[i]
-MUL R7, R7, R6     ; R7 = A[i] * B[i]
+; Умножение A[i] × B[i]
+MUL R7, R7, R6     ; R7 = A[i] × B[i]
 
-; Добавление к общей сумме
-ADD R0, R0, R7     ; R0 = R0 + A[i]*B[i]
+; Добавляем произведение к свертке
+ADD R0, R0, R7     ; R0 = R0 + A[i] × B[i] (свертка)
 
-; Увеличение индекса
+; Увеличиваем индекс
 ADD R1, R1, 1      ; R1 = R1 + 1
 
-JMP CONV_LOOP      ; Повторить цикл
+JMP LOOP_START     ; Переход к началу цикла
 
-CONV_END:
-HALT
-
-; Данные в памяти:
-; Массив A по адресу 0x1100:
-; [0x1100] = 5     (размер)
-; [0x1101] = 1     (A[1])
-; [0x1102] = 2     (A[2])
-; [0x1103] = 3     (A[3])
-; [0x1104] = 4     (A[4])
-; [0x1105] = 5     (A[5])
-
-; Массив B по адресу 0x1200:
-; [0x1200] = 5     (размер)
-; [0x1201] = 5     (B[1])
-; [0x1202] = 4     (B[2])
-; [0x1203] = 3     (B[3])
-; [0x1204] = 2     (B[4])
-; [0x1205] = 1     (B[5])`
+LOOP_END:
+; Результат в R0 (аккумулятор)
+HALT`
     };
 
     setExampleCode(examples[taskId as keyof typeof examples] || '');
@@ -315,6 +331,123 @@ LDRR R6, [R5]      ; R6 = [R5] (значение элемента массива
 
 ; Добавляем элемент к сумме
 ADD R0, R0, R6     ; R0 = R0 + R6 (сумма)
+
+; Увеличиваем индекс
+ADD R1, R1, 1      ; R1 = R1 + 1
+
+JMP LOOP_START     ; Переход к началу цикла
+
+LOOP_END:
+; Результат в R0 (аккумулятор)
+HALT`;
+    setExampleCode(template);
+  };
+
+  const handleLoadTask2Template = () => {
+    // Загружаем шаблон с ручной инициализацией массивов
+    const template = `; Программа для вычисления свертки двух массивов
+; Массив A: [10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] (размер=10, элементы: 1-10)
+; Массив B: [10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] (размер=10, элементы: все 1)
+; Ожидаемый результат: 55 (1+2+3+4+5+6+7+8+9+10)
+
+; Инициализация массива A
+LDI R7, 10          ; Размер массива A = 10
+STR R7, [0x0200]    ; Сохраняем размер по адресу 0x0200
+
+LDI R7, 1           ; Элемент A[0] = 1
+STR R7, [0x0201]    ; Адрес 0x0201
+
+LDI R7, 2           ; Элемент A[1] = 2
+STR R7, [0x0202]    ; Адрес 0x0202
+
+LDI R7, 3           ; Элемент A[2] = 3
+STR R7, [0x0203]    ; Адрес 0x0203
+
+LDI R7, 4           ; Элемент A[3] = 4
+STR R7, [0x0204]    ; Адрес 0x0204
+
+LDI R7, 5           ; Элемент A[4] = 5
+STR R7, [0x0205]    ; Адрес 0x0205
+
+LDI R7, 6           ; Элемент A[5] = 6
+STR R7, [0x0206]    ; Адрес 0x0206
+
+LDI R7, 7           ; Элемент A[6] = 7
+STR R7, [0x0207]    ; Адрес 0x0207
+
+LDI R7, 8           ; Элемент A[7] = 8
+STR R7, [0x0208]    ; Адрес 0x0208
+
+LDI R7, 9           ; Элемент A[8] = 9
+STR R7, [0x0209]    ; Адрес 0x0209
+
+LDI R7, 10          ; Элемент A[9] = 10
+STR R7, [0x020A]    ; Адрес 0x020A
+
+; Инициализация массива B
+LDI R7, 10          ; Размер массива B = 10
+STR R7, [0x0300]    ; Сохраняем размер по адресу 0x0300
+
+LDI R7, 1           ; Элемент B[0] = 1
+STR R7, [0x0301]    ; Адрес 0x0301
+
+LDI R7, 1           ; Элемент B[1] = 1
+STR R7, [0x0302]    ; Адрес 0x0302
+
+LDI R7, 1           ; Элемент B[2] = 1
+STR R7, [0x0303]    ; Адрес 0x0303
+
+LDI R7, 1           ; Элемент B[3] = 1
+STR R7, [0x0304]    ; Адрес 0x0304
+
+LDI R7, 1           ; Элемент B[4] = 1
+STR R7, [0x0305]    ; Адрес 0x0305
+
+LDI R7, 1           ; Элемент B[5] = 1
+STR R7, [0x0306]    ; Адрес 0x0306
+
+LDI R7, 1           ; Элемент B[6] = 1
+STR R7, [0x0307]    ; Адрес 0x0307
+
+LDI R7, 1           ; Элемент B[7] = 1
+STR R7, [0x0308]    ; Адрес 0x0308
+
+LDI R7, 1           ; Элемент B[8] = 1
+STR R7, [0x0309]    ; Адрес 0x0309
+
+LDI R7, 1           ; Элемент B[9] = 1
+STR R7, [0x030A]    ; Адрес 0x030A
+
+; Основная программа вычисления свертки
+LDI R0, 0          ; R0 = 0 (аккумулятор для свертки)
+LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x0200] и [0x0300] - размеры)
+LDI R2, 0x0200     ; R2 = базовый адрес массива A
+LDI R3, 0x0300     ; R3 = базовый адрес массива B
+
+; Загрузка размера массивов (размеры должны быть одинаковыми)
+LDR R4, [0x0200]   ; R4 = размер массива A (из [0x0200])
+
+; Основной цикл свертки
+LOOP_START:
+; Сравниваем индекс с (размер + 1)
+; Если индекс == размер + 1, значит обработали все элементы, выходим
+ADD R5, R4, 1      ; R5 = размер + 1
+CMP R1, R5         ; Сравнить индекс с (размер + 1)
+JZ LOOP_END        ; Если индекс == размер + 1, выйти из цикла
+
+; Вычисляем адрес текущего элемента массива A: базовый_адрес_A + индекс
+ADD R6, R2, R1     ; R6 = 0x0200 + индекс (адрес элемента A)
+LDRR R7, [R6]      ; R7 = A[i] (значение элемента массива A)
+
+; Вычисляем адрес текущего элемента массива B: базовый_адрес_B + индекс
+ADD R6, R3, R1     ; R6 = 0x0300 + индекс (адрес элемента B)
+LDRR R6, [R6]      ; R6 = B[i] (значение элемента массива B)
+
+; Умножение A[i] × B[i]
+MUL R7, R7, R6     ; R7 = A[i] × B[i]
+
+; Добавляем произведение к свертке
+ADD R0, R0, R7     ; R0 = R0 + A[i] × B[i] (свертка)
 
 ; Увеличиваем индекс
 ADD R1, R1, 1      ; R1 = R1 + 1
@@ -467,7 +600,7 @@ HALT`;
                 </Button>
               </div>
               <p className="text-green-800 text-sm mb-4 font-body">
-                Готовые примеры кода для задач. Для задачи 1 доступны два варианта: пример с автоматической загрузкой данных и шаблон с ручной инициализацией массива.
+                Готовые примеры кода для задач. Для задач 1 и 2 доступны два варианта: пример с автоматической загрузкой данных и шаблон с ручной инициализацией массивов.
               </p>
 
               {/* Радиокнопки для выбора заданий */}
@@ -535,6 +668,40 @@ HALT`;
                     <div className="task-selection-description">Свертка массивов</div>
                   </label>
                 </div>
+                
+                {/* Подварианты для Задачи 2 */}
+                {selectedTask === 2 && (
+                  <div className="ml-8 space-y-2 mt-2">
+                    <div className="task-selection-item">
+                      <input
+                        type="radio"
+                        id="task-2-example"
+                        name="task-2-variant"
+                        checked={task2Variant === 'example'}
+                        onChange={() => handleTask2VariantSelect('example')}
+                        className="task-selection-radio"
+                      />
+                      <label htmlFor="task-2-example" className="task-selection-label">
+                        <div className="task-selection-title">Пример</div>
+                        <div className="task-selection-description">С автоматической загрузкой данных</div>
+                      </label>
+                    </div>
+                    <div className="task-selection-item">
+                      <input
+                        type="radio"
+                        id="task-2-template"
+                        name="task-2-variant"
+                        checked={task2Variant === 'template'}
+                        onChange={() => handleTask2VariantSelect('template')}
+                        className="task-selection-radio"
+                      />
+                      <label htmlFor="task-2-template" className="task-selection-label">
+                        <div className="task-selection-title">Шаблон</div>
+                        <div className="task-selection-description">С ручной инициализацией массивов</div>
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

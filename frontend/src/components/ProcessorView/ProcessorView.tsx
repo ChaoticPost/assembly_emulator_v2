@@ -307,18 +307,19 @@ export const ProcessorView: React.FC = () => {
               <div className="task-result">
                 <div className="task-result-value">
                   {(() => {
-                    const memValue = state.memory.ram && state.memory.ram.length > 0x1100 ? state.memory.ram[0x1100] : null;
-                    if (memValue !== null) {
-                      return `0x${memValue.toString(16).toUpperCase().padStart(2, '0')}`;
-                    }
-                    return '0x32';
+                    // Для задачи 2 результат находится в R0 (аккумулятор)
+                    const r0Value = displayRegisters[0] || 0;
+                    return `0x${r0Value.toString(16).toUpperCase().padStart(4, '0')}`;
                   })()}
                 </div>
                 <div className="task-result-title">
                   Свертка двух массивов
                 </div>
                 <div className="task-result-desc">
-                  50 в десятичной системе
+                  {(() => {
+                    const r0Value = displayRegisters[0] || 0;
+                    return `${r0Value} в десятичной системе`;
+                  })()}
                 </div>
               </div>
             ) : (

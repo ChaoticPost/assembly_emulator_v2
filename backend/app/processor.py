@@ -742,17 +742,17 @@ class RISCProcessor:
         if self._current_instruction_line is None:
             # ФАЗА FETCH: читаем команду из compiled_code[pc]
             if not self.compiled_code or self.processor.program_counter >= len(self.compiled_code):
-                    self.processor.is_halted = True
-                    return False
-                
+                self.processor.is_halted = True
+                return False
+            
             # Читаем команду из памяти команд
             self._current_instruction_line = self.compiled_code[self.processor.program_counter]
             
             # Убеждаемся, что регистры инициализированы
-                if not self.processor.registers:
-                    self.processor.registers = [0] * 8
-                while len(self.processor.registers) < 8:
-                    self.processor.registers.append(0)
+            if not self.processor.registers:
+                self.processor.registers = [0] * 8
+            while len(self.processor.registers) < 8:
+                self.processor.registers.append(0)
             
             # Сохраняем состояние регистров ДО fetch (регистры НЕ меняются в fetch)
             registers_before = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
@@ -775,50 +775,50 @@ class RISCProcessor:
             history_entry = {
                 'command': str(self._current_instruction_line).strip(),
                 'instruction': '',
-                    'operands': [],
-                    'execution_phase': 'fetch',
+                'operands': [],
+                'execution_phase': 'fetch',
                 'registers_before': registers_before_final,
                 'registers_after': registers_before_final.copy(),  # В fetch регистры не меняются
                 'registers': registers_before_final.copy(),
                 'ram': ram_state.copy(),  # Состояние RAM на момент fetch
                 'ram_before': ram_state.copy(),
                 'ram_after': ram_state.copy(),  # В fetch RAM не меняется
-                    'flags_before': {
+                'flags_before': {
                     'zero': bool(flags_before.get('zero', False)),
                     'carry': bool(flags_before.get('carry', False)),
                     'overflow': bool(flags_before.get('overflow', False)),
                     'negative': bool(flags_before.get('negative', False))
-                    },
-                    'flags_after': {
+                },
+                'flags_after': {
                     'zero': bool(flags_before.get('zero', False)),
                     'carry': bool(flags_before.get('carry', False)),
                     'overflow': bool(flags_before.get('overflow', False)),
                     'negative': bool(flags_before.get('negative', False))
-                    },
-                    'flags': {
+                },
+                'flags': {
                     'zero': bool(flags_before.get('zero', False)),
                     'carry': bool(flags_before.get('carry', False)),
                     'overflow': bool(flags_before.get('overflow', False)),
                     'negative': bool(flags_before.get('negative', False))
-                    },
+                },
                 'programCounter': int(pc_before),
                 'programCounter_before': int(pc_before)
-                }
+            }
             print(f"═══════════════════════════════════════════════════════════════")
             print(f"🔵 ФАЗА FETCH | PC=0x{pc_before:04X} | Команда: {self._current_instruction_line}")
             print(f"   Регистры: {registers_before_final}")
             print(f"═══════════════════════════════════════════════════════════════")
             self.memory.history.append(history_entry)
-                return True
+            return True
                 
         # Если команда загружена, но не распарсена, переходим к decode
         elif self._current_instruction is None:
             # ФАЗА DECODE: парсим команду и операнды
-                instruction_line = self._current_instruction_line
-                parts = instruction_line.replace(',', ' ').split()
+            instruction_line = self._current_instruction_line
+            parts = instruction_line.replace(',', ' ').split()
             self._current_instruction = parts[0]
             self._current_operands = [p.strip() for p in parts[1:] if p.strip()] if len(parts) > 1 else []
-                
+            
             # Устанавливаем опкод команды в IR
             if self._current_instruction in self.instructions:
                 self.processor.instruction_register = self.instructions[self._current_instruction]
@@ -826,10 +826,10 @@ class RISCProcessor:
                 self.processor.instruction_register = 0
             
             # Убеждаемся, что регистры инициализированы
-                if not self.processor.registers:
-                    self.processor.registers = [0] * 8
-                while len(self.processor.registers) < 8:
-                    self.processor.registers.append(0)
+            if not self.processor.registers:
+                self.processor.registers = [0] * 8
+            while len(self.processor.registers) < 8:
+                self.processor.registers.append(0)
             
             # Сохраняем состояние регистров ДО decode (регистры НЕ меняются в decode)
             registers_before = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
@@ -846,67 +846,67 @@ class RISCProcessor:
             ram_state = list(self.memory.ram) if self.memory.ram else []
             
             history_entry = {
-                    'command': str(instruction_line).strip(),
+                'command': str(instruction_line).strip(),
                 'instruction': str(self._current_instruction).strip(),
                 'operands': [str(op).strip() for op in self._current_operands] if self._current_operands else [],
-                    'execution_phase': 'decode',
+                'execution_phase': 'decode',
                 'registers_before': registers_before_final,
                 'registers_after': registers_before_final.copy(),  # В decode регистры не меняются
                 'registers': registers_before_final.copy(),
                 'ram': ram_state.copy(),  # Состояние RAM на момент decode
                 'ram_before': ram_state.copy(),
                 'ram_after': ram_state.copy(),  # В decode RAM не меняется
-                    'flags_before': {
+                'flags_before': {
                     'zero': bool(flags_before.get('zero', False)),
                     'carry': bool(flags_before.get('carry', False)),
                     'overflow': bool(flags_before.get('overflow', False)),
                     'negative': bool(flags_before.get('negative', False))
-                    },
-                    'flags_after': {
+                },
+                'flags_after': {
                     'zero': bool(flags_before.get('zero', False)),
                     'carry': bool(flags_before.get('carry', False)),
                     'overflow': bool(flags_before.get('overflow', False)),
                     'negative': bool(flags_before.get('negative', False))
-                    },
-                    'flags': {
+                },
+                'flags': {
                     'zero': bool(flags_before.get('zero', False)),
                     'carry': bool(flags_before.get('carry', False)),
                     'overflow': bool(flags_before.get('overflow', False)),
                     'negative': bool(flags_before.get('negative', False))
-                    },
+                },
                 'programCounter': int(pc_before),
                 'programCounter_before': int(pc_before)
-                }
+            }
             print(f"═══════════════════════════════════════════════════════════════")
             print(f"🟡 ФАЗА DECODE | PC=0x{pc_before:04X} | Инструкция: {self._current_instruction} | Операнды: {self._current_operands}")
             print(f"   Регистры: {registers_before_final}")
             print(f"═══════════════════════════════════════════════════════════════")
             self.memory.history.append(history_entry)
-                return True
+            return True
                 
         else:
             # ФАЗА EXECUTE: выполняем команду
-                instruction = self._current_instruction
-                operands = self._current_operands
-                instruction_line = self._current_instruction_line
-                
+            instruction = self._current_instruction
+            operands = self._current_operands
+            instruction_line = self._current_instruction_line
+            
             # Убеждаемся, что регистры инициализированы
-                if not self.processor.registers:
-                    self.processor.registers = [0] * 8
-                while len(self.processor.registers) < 8:
-                    self.processor.registers.append(0)
+            if not self.processor.registers:
+                self.processor.registers = [0] * 8
+            while len(self.processor.registers) < 8:
+                self.processor.registers.append(0)
             
             # КРИТИЧНО: Сохраняем состояние регистров и RAM ПЕРЕД выполнением
-                registers_before = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
-                flags_before = dict(self.processor.flags)
-                pc_before = self.processor.program_counter
+            registers_before = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
+            flags_before = dict(self.processor.flags)
+            pc_before = self.processor.program_counter
             ram_before_state = list(self.memory.ram) if self.memory.ram else []  # Сохраняем RAM ДО выполнения
-                
+            
             print(f"═══════════════════════════════════════════════════════════════")
             print(f"🟢 ФАЗА EXECUTE | PC=0x{pc_before:04X} | Инструкция: {instruction} | Операнды: {operands}")
             print(f"   Регистры ДО: {registers_before}")
-                
-                # Выполняем инструкцию
+            
+            # Выполняем инструкцию
             try:
                 self.execute_instruction(instruction, operands)
                 self.processor.cycles += 1
@@ -1000,14 +1000,14 @@ class RISCProcessor:
                 
                 return not self.processor.is_halted
                 
-        except Exception as e:
-            self.processor.is_halted = True
-            self.processor.current_command = f"ERROR: {str(e)}"
+            except Exception as e:
+                self.processor.is_halted = True
+                self.processor.current_command = f"ERROR: {str(e)}"
                 # Сбрасываем промежуточные переменные
                 self._current_instruction_line = None
                 self._current_instruction = None
                 self._current_operands = None
-            return False
+                return False
     
     def load_program(self, compiled_code: List[str], source_code: str = ""):
         """Загрузить скомпилированную программу"""
@@ -1099,7 +1099,7 @@ class RISCProcessor:
                     # Сериализуем execution_phase как строку
                     print(f"DEBUG get_state: execution_phase serialization: key={key}, value={value} (type={type(value)}), result={value}")
                     history_entry[key] = str(value) if value is not None else None
-                    else:
+                else:
                     # Для остальных полей просто копируем значение
                     history_entry[key] = value
             history_serialized.append(history_entry)

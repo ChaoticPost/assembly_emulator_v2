@@ -619,7 +619,7 @@ HALT`;
                     <div className="task-selection-description">Сумма массива</div>
                   </label>
                 </div>
-                
+
                 {/* Подварианты для Задачи 1 */}
                 {selectedTask === 1 && (
                   <div className="ml-8 space-y-2 mt-2">
@@ -668,7 +668,7 @@ HALT`;
                     <div className="task-selection-description">Свертка массивов</div>
                   </label>
                 </div>
-                
+
                 {/* Подварианты для Задачи 2 */}
                 {selectedTask === 2 && (
                   <div className="ml-8 space-y-2 mt-2">
@@ -949,6 +949,104 @@ HALT`}
                     <div className="text-green-800 font-medium">8 регистров</div>
                   </div>
                   <p className="text-green-700">R0-R7 (R0 - аккумулятор)</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Фазы выполнения команды */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
+              <h5 className="text-xl font-bold text-blue-900 font-heading mb-4 flex items-center">
+                <span className="mr-2">⚙️</span>
+                Фазы выполнения команды
+              </h5>
+              <p className="text-blue-800 text-sm mb-4 font-body">
+                Каждая команда выполняется в три этапа: выборка (Fetch), дешифрация (Decode) и исполнение (Execute)
+              </p>
+
+              <div className="space-y-4">
+                {/* Фаза Fetch */}
+                <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500">
+                  <div className="flex items-center mb-2">
+                    <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded mr-2">FETCH</span>
+                    <h6 className="font-bold text-blue-800">Выборка</h6>
+                  </div>
+                  <p className="text-sm text-gray-700 mb-2">
+                    Загрузка инструкции из памяти команд по адресу, указанному в счетчике команд (PC)
+                  </p>
+                  <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs">
+                    <strong className="text-blue-800">Что происходит:</strong>
+                    <ul className="list-disc list-inside text-gray-700 mt-1 space-y-1">
+                      <li>Чтение команды из <code className="font-mono text-blue-600">compiled_code[PC]</code></li>
+                      <li>Загрузка команды в регистр команд (IR)</li>
+                      <li>Регистры <strong>НЕ изменяются</strong></li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Фаза Decode */}
+                <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-yellow-500">
+                  <div className="flex items-center mb-2">
+                    <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded mr-2">DECODE</span>
+                    <h6 className="font-bold text-yellow-800">Дешифрация</h6>
+                  </div>
+                  <p className="text-sm text-gray-700 mb-2">
+                    Дешифрация регистров и операндов, используемых в инструкции
+                  </p>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs">
+                    <strong className="text-yellow-800">Что происходит:</strong>
+                    <ul className="list-disc list-inside text-gray-700 mt-1 space-y-1">
+                      <li>Парсинг команды на инструкцию и операнды</li>
+                      <li>Определение режима адресации</li>
+                      <li>Установка опкода команды в IR</li>
+                      <li>Регистры <strong>НЕ изменяются</strong></li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Фаза Execute */}
+                <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
+                  <div className="flex items-center mb-2">
+                    <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded mr-2">EXECUTE</span>
+                    <h6 className="font-bold text-green-800">Исполнение</h6>
+                  </div>
+                  <p className="text-sm text-gray-700 mb-2">
+                    Выполнение операции: чтение регистров, выполнение операции в АЛУ, запись результата
+                  </p>
+                  <div className="bg-green-50 border border-green-200 rounded p-2 text-xs">
+                    <strong className="text-green-800">Что происходит:</strong>
+                    <ul className="list-disc list-inside text-gray-700 mt-1 space-y-1">
+                      <li>Чтение регистра(ов) из банка регистров</li>
+                      <li>Выполнение операций сдвига и АЛУ (арифметико-логическое устройство)</li>
+                      <li>Обратная запись регистра(ов) в банк регистров</li>
+                      <li>Обновление флагов состояния (Z, C, V, N)</li>
+                      <li>Регистры <strong>МОГУТ изменяться</strong> в зависимости от команды</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Пример выполнения */}
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
+                  <h6 className="font-bold text-purple-800 mb-3">📋 Пример выполнения команды LDI R0, 7</h6>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center space-x-2 bg-white rounded p-2">
+                      <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">FETCH</span>
+                      <span className="text-gray-700">Чтение команды "LDI R0, 7" из памяти, PC=0x0000</span>
+                      <span className="text-gray-500 text-xs ml-auto">Регистры: R0=0x0000, R1=0x0000...</span>
+                    </div>
+                    <div className="flex items-center space-x-2 bg-white rounded p-2">
+                      <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded">DECODE</span>
+                      <span className="text-gray-700">Парсинг: инструкция=LDI, операнды=[R0, 7]</span>
+                      <span className="text-gray-500 text-xs ml-auto">Регистры: R0=0x0000, R1=0x0000...</span>
+                    </div>
+                    <div className="flex items-center space-x-2 bg-white rounded p-2">
+                      <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">EXECUTE</span>
+                      <span className="text-gray-700">Выполнение: R0 = 7</span>
+                      <span className="text-green-600 font-bold text-xs ml-auto">Регистры: R0=0x0007 ⚠️, R1=0x0000...</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-purple-700 mt-2">
+                    💡 В интерфейсе каждая фаза отображается в отдельной строке таблицы "Пошаговое выполнение программы" с цветовой индикацией
+                  </p>
                 </div>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from 'primereact/card';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
@@ -10,6 +10,8 @@ export const MemoryView: React.FC = () => {
     const { memory } = state;
     const [previousHistoryLength, setPreviousHistoryLength] = useState(0);
     const [previousRamLength, setPreviousRamLength] = useState(0);
+    const [changedAddresses, setChangedAddresses] = useState<Set<number>>(new Set());
+    const previousRamRef = useRef<number[]>([]);
 
     // Функция форматирования регистров в hex-формате для всех задач
     const formatRegisters = (registers: number[]) => {
@@ -252,9 +254,171 @@ export const MemoryView: React.FC = () => {
         }
     }, [state.memory.ram, previousRamLength]);
 
+    // Отслеживаем изменения памяти для подсветки
+    useEffect(() => {
+        if (!state.memory.ram || state.memory.ram.length === 0) {
+            previousRamRef.current = [];
+            return;
+        }
+
+        const previousRam = previousRamRef.current;
+
+        // Если это первая инициализация, просто сохраняем состояние
+        if (previousRam.length === 0) {
+            previousRamRef.current = [...state.memory.ram];
+            return;
+        }
+
+        // Сравниваем только в пределах разумного диапазона (до 0x2000 = 8192)
+        const maxLen = Math.min(Math.max(state.memory.ram.length, previousRam.length), 0x2000);
+        const changed = new Set<number>();
+
+        for (let i = 0; i < maxLen; i++) {
+            const currentVal = (state.memory.ram[i] || 0) & 0xFFFF;
+            const prevVal = (previousRam[i] || 0) & 0xFFFF;
+            if (currentVal !== prevVal) {
+                changed.add(i);
+            }
+        }
+
+        if (changed.size > 0) {
+            setChangedAddresses(new Set(changed));
+            // Сбрасываем подсветку через 2 секунды
+            const timeoutId = setTimeout(() => {
+                setChangedAddresses(new Set());
+            }, 2000);
+
+            // Очищаем таймер при размонтировании
+            return () => clearTimeout(timeoutId);
+        }
+
+        // Сохраняем текущее состояние памяти
+        previousRamRef.current = [...state.memory.ram];
+    }, [state.memory.ram]);
+
+    // Подготовка данных для таблицы памяти
+    const prepareMemoryData = () => {
+        if (!state.memory.ram || state.memory.ram.length === 0) {
+            return [];
+        }
+
+        const memoryData: Array<{ address: number; addressHex: string; valueHex: string; valueDec: number; isChanged: boolean }> = [];
+
+        // Определяем диапазон для отображения
+        // Для задачи 1: показываем 0x0100-0x010F (256-271)
+        // Для задачи 2: показываем 0x0200-0x020A и 0x0300-0x030A
+        // Для остальных: показываем все непустые ячейки или первые 0x1000 ячеек
+
+        let addressesToShow: number[] = [];
+
+        if (current_task === 1) {
+            // Для задачи 1 показываем диапазон 0x0100-0x010F
+            for (let addr = 0x0100; addr <= 0x010F; addr++) {
+                addressesToShow.push(addr);
+            }
+        } else if (current_task === 2) {
+            // Для задачи 2 показываем диапазоны массивов A и B
+            for (let addr = 0x0200; addr <= 0x020A; addr++) {
+                addressesToShow.push(addr);
+            }
+            for (let addr = 0x0300; addr <= 0x030A; addr++) {
+                addressesToShow.push(addr);
+            }
+        } else {
+            // Для остальных задач показываем все непустые ячейки или первые 0x1000
+            const maxAddr = Math.min(state.memory.ram.length, 0x1000);
+            for (let addr = 0; addr < maxAddr; addr++) {
+                const value = (state.memory.ram[addr] || 0) & 0xFFFF;
+                // Показываем ячейку, если она не пустая или если она была изменена
+                if (value !== 0 || changedAddresses.has(addr)) {
+                    addressesToShow.push(addr);
+                }
+            }
+        }
+
+        // Создаем данные для таблицы
+        addressesToShow.forEach(addr => {
+            if (addr < state.memory.ram.length) {
+                const value = (state.memory.ram[addr] || 0) & 0xFFFF;
+                const unsigned = value >>> 0;
+                memoryData.push({
+                    address: addr,
+                    addressHex: `0x${addr.toString(16).toUpperCase().padStart(4, '0')}`,
+                    valueHex: `0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`,
+                    valueDec: unsigned,
+                    isChanged: changedAddresses.has(addr)
+                });
+            }
+        });
+
+        return memoryData;
+    };
+
+    const memoryData = prepareMemoryData();
+
     return (
         <Card title="Память" className="memory-card">
             <div className="memory-sections">
+                {/* Визуализация памяти (RAM) */}
+                <div className="memory-section">
+                    <h4 className="mb-4">
+                        Состояние памяти (RAM)
+                        {memoryData.length > 0 && (
+                            <span className="ml-2 text-xs text-gray-500 font-normal">
+                                ({memoryData.length} ячеек)
+                            </span>
+                        )}
+                    </h4>
+                    {memoryData.length > 0 ? (
+                        <DataTable
+                            value={memoryData}
+                            size="small"
+                            className="ram-table"
+                            emptyMessage="Память пуста"
+                            paginator={memoryData.length > 20}
+                            rows={20}
+                            paginatorTemplate="RowsPerPageDropdown FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink"
+                            currentPageReportTemplate="{first} - {last} из {totalRecords}"
+                        >
+                            <Column
+                                field="addressHex"
+                                header="Адрес"
+                                style={{ width: '100px' }}
+                                body={(rowData) => (
+                                    <span className="font-mono text-blue-600 font-semibold">{rowData.addressHex}</span>
+                                )}
+                            />
+                            <Column
+                                field="valueHex"
+                                header="Значение (hex)"
+                                style={{ width: '120px' }}
+                                body={(rowData) => (
+                                    <span className={`font-mono font-semibold ${rowData.isChanged ? 'text-green-600 bg-green-50 px-2 py-1 rounded animate-pulse' : 'text-gray-800'}`}>
+                                        {rowData.valueHex}
+                                    </span>
+                                )}
+                            />
+                            <Column
+                                field="valueDec"
+                                header="Значение (dec)"
+                                style={{ width: '120px' }}
+                                body={(rowData) => (
+                                    <span className={`font-mono ${rowData.isChanged ? 'text-green-600 bg-green-50 px-2 py-1 rounded animate-pulse' : 'text-gray-600'}`}>
+                                        {rowData.valueDec}
+                                    </span>
+                                )}
+                            />
+                        </DataTable>
+                    ) : (
+                        <div className="bg-gray-50 rounded-lg p-6 text-center">
+                            <div className="text-3xl mb-2">💾</div>
+                            <p className="text-gray-500 text-sm">
+                                Память пуста или не содержит данных в отображаемом диапазоне
+                            </p>
+                        </div>
+                    )}
+                </div>
+
                 {current_task === 2 ? (
                     <div className="memory-section">
                         {/* Шаги выполнения для задачи 2 */}

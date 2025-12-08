@@ -470,7 +470,27 @@ async def execute_step():
                 ram_before_step = list(emulator.processor.memory.ram)
                 print(f"DEBUG step endpoint: Инициализирована память размером {min_size}")
         
+        # Получаем текущую фазу выполнения (если есть последняя запись в истории)
+        last_history_entry = None
+        if emulator.processor.memory.history and len(emulator.processor.memory.history) > 0:
+            last_history_entry = emulator.processor.memory.history[-1]
+        
+        # Выполняем шаг
         result = emulator.execute_step()
+        
+        # Получаем информацию о выполненной фазе из последней записи истории
+        phase_info = None
+        if result.get("state") and result["state"].get("memory"):
+            history = result["state"]["memory"].get("history", [])
+            if history and len(history) > 0:
+                last_entry = history[-1]
+                phase_info = last_entry.get("execution_phase")
+                command_info = last_entry.get("command", "-")
+                if phase_info:
+                    phase_display = phase_info.upper()
+                    print(f"═══════════════════════════════════════════════════════════════")
+                    print(f"🔹 ФАЗА ВЫПОЛНЕНИЯ: {phase_display} | Команда: {command_info}")
+                    print(f"═══════════════════════════════════════════════════════════════")
         
         # Проверяем память после выполнения шага
         ram_after_step = list(emulator.processor.memory.ram) if emulator.processor.memory.ram else []

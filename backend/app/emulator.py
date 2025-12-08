@@ -78,6 +78,11 @@ class RISCEmulator:
             self.processor.processor.cycles = 0
             self.processor.memory.history = []
             
+            # Сбрасываем промежуточные переменные для системы фаз выполнения
+            self.processor._current_instruction_line = None
+            self.processor._current_instruction = None
+            self.processor._current_operands = None
+            
             # Восстанавливаем память (гарантируем достаточный размер)
             if saved_ram and len(saved_ram) >= 0x0101:
                 # Создаем новый список для Pydantic

@@ -17,18 +17,18 @@ export const MemoryView: React.FC = () => {
             // Если регистров нет, возвращаем начальное состояние
             return 'R0:0x0000, R1:0x0000, R2:0x0000, R3:0x0000, R4:0x0000, R5:0x0000, R6:0x0000, R7:0x0000';
         }
-        
+
         // Гарантируем, что у нас есть ровно 8 регистров
         const regs = registers.slice(0, 8);
         while (regs.length < 8) {
             regs.push(0);
         }
-        
+
         // Для всех задач отображаем в hex-формате для единообразия
         return regs.map((item, index) => {
             // Обрабатываем undefined и null
             const value = (item !== undefined && item !== null) ? item : 0;
-            
+
             // Ограничиваем значение 16-битным диапазоном (0x0000 - 0xFFFF)
             // Обрабатываем как положительные, так и отрицательные числа
             const unsigned = (value >>> 0) & 0xFFFF;
@@ -43,7 +43,7 @@ export const MemoryView: React.FC = () => {
         // Получаем регистры ДО выполнения команды
         // Приоритет: registers_before из текущей записи > registers_after из предыдущей > начальное состояние (все нули)
         let prevRegisters: number[] = [];
-        
+
         // Сначала пытаемся получить registers_before из текущей записи
         if ((entry as any).registers_before && Array.isArray((entry as any).registers_before) && (entry as any).registers_before.length > 0) {
             // Преобразуем все значения в числа и создаем копию массива
@@ -99,12 +99,12 @@ export const MemoryView: React.FC = () => {
                 });
             }
         }
-        
+
         // Если регистров все еще нет, используем начальное состояние (все нули)
         if (!prevRegisters || prevRegisters.length === 0) {
             prevRegisters = [0, 0, 0, 0, 0, 0, 0, 0];
         }
-        
+
         // Гарантируем, что у нас есть ровно 8 регистров
         while (prevRegisters.length < 8) {
             prevRegisters.push(0);
@@ -113,7 +113,7 @@ export const MemoryView: React.FC = () => {
 
         // Получаем регистры ПОСЛЕ выполнения команды
         let currentRegisters: number[] = [];
-        
+
         // Сначала пытаемся получить registers_after из текущей записи
         if ((entry as any).registers_after && Array.isArray((entry as any).registers_after) && (entry as any).registers_after.length > 0) {
             // Преобразуем все значения в числа и создаем копию массива
@@ -149,18 +149,18 @@ export const MemoryView: React.FC = () => {
                 return val;
             });
         }
-        
+
         // Если регистров нет, используем предыдущие (команда не изменила регистры)
         if (!currentRegisters || currentRegisters.length === 0) {
             currentRegisters = [...prevRegisters];  // Создаем копию массива
         }
-        
+
         // Гарантируем, что у нас есть ровно 8 регистров
         while (currentRegisters.length < 8) {
             currentRegisters.push(0);
         }
         currentRegisters = currentRegisters.slice(0, 8);
-        
+
         // Отладочная информация для первых нескольких записей
         if (index < 10) {
             console.log(`MemoryView: Step ${index + 1}`);
@@ -185,7 +185,7 @@ export const MemoryView: React.FC = () => {
                 prevFlags = (prevEntry as any).flags;
             }
         }
-        
+
         // Если флагов нет, используем начальное состояние (все false)
         if (!prevFlags || Object.keys(prevFlags).length === 0) {
             prevFlags = { zero: false, carry: false, overflow: false, negative: false };
@@ -201,7 +201,7 @@ export const MemoryView: React.FC = () => {
             // Если флагов нет, используем предыдущие (команда не изменила флаги)
             currentFlags = { ...prevFlags };
         }
-        
+
         // Гарантируем наличие всех флагов
         currentFlags = {
             zero: currentFlags.zero === true,
@@ -221,9 +221,18 @@ export const MemoryView: React.FC = () => {
             commandText = (entry as any).instruction.trim();
         }
 
+        // Получаем фазу выполнения
+        let phase = (entry as any).execution_phase || null;
+        if (phase && typeof phase === 'string') {
+            phase = phase.toLowerCase();
+        } else {
+            phase = null;
+        }
+
         return {
             step: index + 1,
             command: commandText,
+            phase: phase,
             registersBefore: formatRegisters(prevRegisters),
             registersAfter: formatRegisters(currentRegisters),
             flags: `Z=${currentFlags.zero ? 1 : 0} C=${currentFlags.carry ? 1 : 0} O=${currentFlags.overflow ? 1 : 0} N=${currentFlags.negative ? 1 : 0}`
@@ -274,6 +283,26 @@ export const MemoryView: React.FC = () => {
                                         )}
                                     />
                                     <Column
+                                        field="phase"
+                                        header="ФАЗА"
+                                        style={{ width: '100px' }}
+                                        body={(rowData) => {
+                                            const phase = rowData.phase;
+                                            if (!phase) return <span className="text-gray-400">-</span>;
+                                            const phaseMap: { [key: string]: { text: string; color: string; bg: string } } = {
+                                                'fetch': { text: 'FETCH', color: 'text-blue-700', bg: 'bg-blue-100' },
+                                                'decode': { text: 'DECODE', color: 'text-yellow-700', bg: 'bg-yellow-100' },
+                                                'execute': { text: 'EXECUTE', color: 'text-green-700', bg: 'bg-green-100' }
+                                            };
+                                            const phaseInfo = phaseMap[phase.toLowerCase()] || { text: phase.toUpperCase(), color: 'text-gray-700', bg: 'bg-gray-100' };
+                                            return (
+                                                <span className={`font-mono font-bold px-2 py-1 rounded ${phaseInfo.color} ${phaseInfo.bg}`}>
+                                                    {phaseInfo.text}
+                                                </span>
+                                            );
+                                        }}
+                                    />
+                                    <Column
                                         field="command"
                                         header="КОМАНДА"
                                         body={(rowData) => (
@@ -320,14 +349,14 @@ export const MemoryView: React.FC = () => {
                     </div>
                 ) : (
                     <div className="memory-section">
-                            <h4 className="mb-4">
-                                Пошаговое выполнение программы
-                                {memory.history.length > 0 && (
-                                    <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded animate-pulse">
-                                        Активно
-                                    </span>
-                                )}
-                            </h4>
+                        <h4 className="mb-4">
+                            Пошаговое выполнение программы
+                            {memory.history.length > 0 && (
+                                <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded animate-pulse">
+                                    Активно
+                                </span>
+                            )}
+                        </h4>
                         <DataTable
                             value={executionData}
                             size="small"
@@ -341,6 +370,26 @@ export const MemoryView: React.FC = () => {
                                 body={(rowData) => (
                                     <span className="font-mono text-green-600 font-bold">{rowData.step}</span>
                                 )}
+                            />
+                            <Column
+                                field="phase"
+                                header="ФАЗА"
+                                style={{ width: '100px' }}
+                                body={(rowData) => {
+                                    const phase = rowData.phase;
+                                    if (!phase) return <span className="text-gray-400">-</span>;
+                                    const phaseMap: { [key: string]: { text: string; color: string; bg: string } } = {
+                                        'fetch': { text: 'FETCH', color: 'text-blue-700', bg: 'bg-blue-100' },
+                                        'decode': { text: 'DECODE', color: 'text-yellow-700', bg: 'bg-yellow-100' },
+                                        'execute': { text: 'EXECUTE', color: 'text-green-700', bg: 'bg-green-100' }
+                                    };
+                                    const phaseInfo = phaseMap[phase.toLowerCase()] || { text: phase.toUpperCase(), color: 'text-gray-700', bg: 'bg-gray-100' };
+                                    return (
+                                        <span className={`font-mono font-bold px-2 py-1 rounded ${phaseInfo.color} ${phaseInfo.bg}`}>
+                                            {phaseInfo.text}
+                                        </span>
+                                    );
+                                }}
                             />
                             <Column
                                 field="command"

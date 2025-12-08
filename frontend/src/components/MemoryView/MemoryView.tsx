@@ -12,6 +12,7 @@ export const MemoryView: React.FC = () => {
     const [previousRamLength, setPreviousRamLength] = useState(0);
     const [changedAddresses, setChangedAddresses] = useState<Set<number>>(new Set());
     const previousRamRef = useRef<number[]>([]);
+    const [activeTab, setActiveTab] = useState<'execution' | 'memory'>('execution');
 
     // Функция форматирования регистров в hex-формате для всех задач
     const formatRegisters = (registers: number[]) => {
@@ -358,80 +359,196 @@ export const MemoryView: React.FC = () => {
 
     return (
         <Card title="Память" className="memory-card">
-            <div className="memory-sections">
-                {/* Визуализация памяти (RAM) */}
-                <div className="memory-section">
-                    <h4 className="mb-4">
-                        Состояние памяти (RAM)
-                        {memoryData.length > 0 && (
-                            <span className="ml-2 text-xs text-gray-500 font-normal">
-                                ({memoryData.length} ячеек)
-                            </span>
-                        )}
-                    </h4>
-                    {memoryData.length > 0 ? (
-                        <DataTable
-                            value={memoryData}
-                            size="small"
-                            className="ram-table"
-                            emptyMessage="Память пуста"
-                            paginator={memoryData.length > 20}
-                            rows={20}
-                            paginatorTemplate="RowsPerPageDropdown FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink"
-                            currentPageReportTemplate="{first} - {last} из {totalRecords}"
-                        >
-                            <Column
-                                field="addressHex"
-                                header="Адрес"
-                                style={{ width: '100px' }}
-                                body={(rowData) => (
-                                    <span className="font-mono text-blue-600 font-semibold">{rowData.addressHex}</span>
-                                )}
-                            />
-                            <Column
-                                field="valueHex"
-                                header="Значение (hex)"
-                                style={{ width: '120px' }}
-                                body={(rowData) => (
-                                    <span className={`font-mono font-semibold ${rowData.isChanged ? 'text-green-600 bg-green-50 px-2 py-1 rounded animate-pulse' : 'text-gray-800'}`}>
-                                        {rowData.valueHex}
-                                    </span>
-                                )}
-                            />
-                            <Column
-                                field="valueDec"
-                                header="Значение (dec)"
-                                style={{ width: '120px' }}
-                                body={(rowData) => (
-                                    <span className={`font-mono ${rowData.isChanged ? 'text-green-600 bg-green-50 px-2 py-1 rounded animate-pulse' : 'text-gray-600'}`}>
-                                        {rowData.valueDec}
-                                    </span>
-                                )}
-                            />
-                        </DataTable>
-                    ) : (
-                        <div className="bg-gray-50 rounded-lg p-6 text-center">
-                            <div className="text-3xl mb-2">💾</div>
-                            <p className="text-gray-500 text-sm">
-                                Память пуста или не содержит данных в отображаемом диапазоне
-                            </p>
-                        </div>
-                    )}
-                </div>
+            {/* Вкладки для переключения между выполнением и памятью */}
+            <div className="mb-4 border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                    <button
+                        className={`border-b-2 py-2 px-1 text-sm font-bold ${activeTab === 'execution'
+                                ? 'border-green-500 text-green-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                        onClick={() => setActiveTab('execution')}
+                    >
+                        Выполнение
+                    </button>
+                    <button
+                        className={`border-b-2 py-2 px-1 text-sm font-bold ${activeTab === 'memory'
+                                ? 'border-green-500 text-green-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                        onClick={() => setActiveTab('memory')}
+                    >
+                        Память (RAM)
+                    </button>
+                </nav>
+            </div>
 
-                {current_task === 2 ? (
+            <div className="memory-sections">
+                {activeTab === 'memory' ? (
+                    /* Визуализация памяти (RAM) - отдельная страница */
                     <div className="memory-section">
-                        {/* Шаги выполнения для задачи 2 */}
-                        <div>
-                            <h4 className="mb-4">
-                                Пошаговое выполнение программы
-                                {memory.history.length > 0 && (
-                                    <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded animate-pulse">
-                                        Активно
-                                    </span>
-                                )}
-                            </h4>
-                            {executionData.length > 0 ? (
+                        <h4 className="mb-4">
+                            Состояние памяти (RAM)
+                            {memoryData.length > 0 && (
+                                <span className="ml-2 text-xs text-gray-500 font-normal">
+                                    ({memoryData.length} ячеек)
+                                </span>
+                            )}
+                        </h4>
+                        {memoryData.length > 0 ? (
+                            <DataTable
+                                value={memoryData}
+                                size="small"
+                                className="ram-table"
+                                emptyMessage="Память пуста"
+                                paginator={memoryData.length > 20}
+                                rows={20}
+                                paginatorTemplate="RowsPerPageDropdown FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink"
+                                currentPageReportTemplate="{first} - {last} из {totalRecords}"
+                            >
+                                <Column
+                                    field="addressHex"
+                                    header="Адрес"
+                                    style={{ width: '100px' }}
+                                    body={(rowData) => (
+                                        <span className="font-mono text-blue-600 font-semibold">{rowData.addressHex}</span>
+                                    )}
+                                />
+                                <Column
+                                    field="valueHex"
+                                    header="Значение (hex)"
+                                    style={{ width: '120px' }}
+                                    body={(rowData) => (
+                                        <span className={`font-mono font-semibold ${rowData.isChanged ? 'text-green-600 bg-green-50 px-2 py-1 rounded animate-pulse' : 'text-gray-800'}`}>
+                                            {rowData.valueHex}
+                                        </span>
+                                    )}
+                                />
+                                <Column
+                                    field="valueDec"
+                                    header="Значение (dec)"
+                                    style={{ width: '120px' }}
+                                    body={(rowData) => (
+                                        <span className={`font-mono ${rowData.isChanged ? 'text-green-600 bg-green-50 px-2 py-1 rounded animate-pulse' : 'text-gray-600'}`}>
+                                            {rowData.valueDec}
+                                        </span>
+                                    )}
+                                />
+                            </DataTable>
+                        ) : (
+                            <div className="bg-gray-50 rounded-lg p-6 text-center">
+                                <div className="text-3xl mb-2">💾</div>
+                                <p className="text-gray-500 text-sm">
+                                    Память пуста или не содержит данных в отображаемом диапазоне
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    /* Вкладка выполнения программы */
+                    <>
+                        {current_task === 2 ? (
+                            <div className="memory-section">
+                                {/* Шаги выполнения для задачи 2 */}
+                                <div>
+                                    <h4 className="mb-4">
+                                        Пошаговое выполнение программы
+                                        {memory.history.length > 0 && (
+                                            <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded animate-pulse">
+                                                Активно
+                                            </span>
+                                        )}
+                                    </h4>
+                                    {executionData.length > 0 ? (
+                                        <DataTable
+                                            value={executionData}
+                                            size="small"
+                                            className={`history-table ${memory.history.length > previousHistoryLength ? 'animate-slide-in-up' : ''}`}
+                                            emptyMessage="Нет данных"
+                                        >
+                                            <Column
+                                                field="step"
+                                                header="ШАГ"
+                                                style={{ width: '60px' }}
+                                                body={(rowData) => (
+                                                    <span className="font-mono text-green-600 font-bold">{rowData.step}</span>
+                                                )}
+                                            />
+                                            <Column
+                                                field="phase"
+                                                header="ФАЗА"
+                                                style={{ width: '100px' }}
+                                                body={(rowData) => {
+                                                    const phase = rowData.phase;
+                                                    if (!phase) return <span className="text-gray-400">-</span>;
+                                                    const phaseMap: { [key: string]: { text: string; color: string; bg: string } } = {
+                                                        'fetch': { text: 'FETCH', color: 'text-blue-700', bg: 'bg-blue-100' },
+                                                        'decode': { text: 'DECODE', color: 'text-yellow-700', bg: 'bg-yellow-100' },
+                                                        'execute': { text: 'EXECUTE', color: 'text-green-700', bg: 'bg-green-100' }
+                                                    };
+                                                    const phaseInfo = phaseMap[phase.toLowerCase()] || { text: phase.toUpperCase(), color: 'text-gray-700', bg: 'bg-gray-100' };
+                                                    return (
+                                                        <span className={`font-mono font-bold px-2 py-1 rounded ${phaseInfo.color} ${phaseInfo.bg}`}>
+                                                            {phaseInfo.text}
+                                                        </span>
+                                                    );
+                                                }}
+                                            />
+                                            <Column
+                                                field="command"
+                                                header="КОМАНДА"
+                                                body={(rowData) => (
+                                                    <span className="font-mono text-gray-800 bg-gray-50 px-2 py-1 rounded">{rowData.command || '-'}</span>
+                                                )}
+                                            />
+                                            <Column
+                                                field="registersBefore"
+                                                header="РЕГИСТРЫ ДО"
+                                                body={(rowData) => (
+                                                    <span className="font-mono text-orange-600">{rowData.registersBefore}</span>
+                                                )}
+                                            />
+                                            <Column
+                                                field="registersAfter"
+                                                header="РЕГИСТРЫ ПОСЛЕ"
+                                                body={(rowData) => (
+                                                    <span className="font-mono text-green-600">{rowData.registersAfter}</span>
+                                                )}
+                                            />
+                                            <Column
+                                                field="flags"
+                                                header="ФЛАГИ"
+                                                body={(rowData) => (
+                                                    <span className="font-mono text-purple-600">{rowData.flags}</span>
+                                                )}
+                                            />
+                                        </DataTable>
+                                    ) : (
+                                        <div className="bg-gray-50 rounded-lg p-8 text-center">
+                                            <div className="text-4xl mb-4">⏳</div>
+                                            <h3 className="text-lg font-bold text-gray-700 mb-2">Программа не выполнена</h3>
+                                            <p className="text-gray-500 mb-4">
+                                                Начните выполнение программы для просмотра пошагового выполнения
+                                            </p>
+                                            <div className="text-sm text-gray-400">
+                                                Используйте кнопки "Выполнить" или "Шаг" для запуска
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+
+                            </div>
+                        ) : (
+                            <div className="memory-section">
+                                <h4 className="mb-4">
+                                    Пошаговое выполнение программы
+                                    {memory.history.length > 0 && (
+                                        <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded animate-pulse">
+                                            Активно
+                                        </span>
+                                    )}
+                                </h4>
                                 <DataTable
                                     value={executionData}
                                     size="small"
@@ -495,96 +612,9 @@ export const MemoryView: React.FC = () => {
                                         )}
                                     />
                                 </DataTable>
-                            ) : (
-                                <div className="bg-gray-50 rounded-lg p-8 text-center">
-                                    <div className="text-4xl mb-4">⏳</div>
-                                    <h3 className="text-lg font-bold text-gray-700 mb-2">Программа не выполнена</h3>
-                                    <p className="text-gray-500 mb-4">
-                                        Начните выполнение программы для просмотра пошагового выполнения
-                                    </p>
-                                    <div className="text-sm text-gray-400">
-                                        Используйте кнопки "Выполнить" или "Шаг" для запуска
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-
-                    </div>
-                ) : (
-                    <div className="memory-section">
-                        <h4 className="mb-4">
-                            Пошаговое выполнение программы
-                            {memory.history.length > 0 && (
-                                <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded animate-pulse">
-                                    Активно
-                                </span>
-                            )}
-                        </h4>
-                        <DataTable
-                            value={executionData}
-                            size="small"
-                            className={`history-table ${memory.history.length > previousHistoryLength ? 'animate-slide-in-up' : ''}`}
-                            emptyMessage="Нет данных"
-                        >
-                            <Column
-                                field="step"
-                                header="ШАГ"
-                                style={{ width: '60px' }}
-                                body={(rowData) => (
-                                    <span className="font-mono text-green-600 font-bold">{rowData.step}</span>
-                                )}
-                            />
-                            <Column
-                                field="phase"
-                                header="ФАЗА"
-                                style={{ width: '100px' }}
-                                body={(rowData) => {
-                                    const phase = rowData.phase;
-                                    if (!phase) return <span className="text-gray-400">-</span>;
-                                    const phaseMap: { [key: string]: { text: string; color: string; bg: string } } = {
-                                        'fetch': { text: 'FETCH', color: 'text-blue-700', bg: 'bg-blue-100' },
-                                        'decode': { text: 'DECODE', color: 'text-yellow-700', bg: 'bg-yellow-100' },
-                                        'execute': { text: 'EXECUTE', color: 'text-green-700', bg: 'bg-green-100' }
-                                    };
-                                    const phaseInfo = phaseMap[phase.toLowerCase()] || { text: phase.toUpperCase(), color: 'text-gray-700', bg: 'bg-gray-100' };
-                                    return (
-                                        <span className={`font-mono font-bold px-2 py-1 rounded ${phaseInfo.color} ${phaseInfo.bg}`}>
-                                            {phaseInfo.text}
-                                        </span>
-                                    );
-                                }}
-                            />
-                            <Column
-                                field="command"
-                                header="КОМАНДА"
-                                body={(rowData) => (
-                                    <span className="font-mono text-gray-800 bg-gray-50 px-2 py-1 rounded">{rowData.command || '-'}</span>
-                                )}
-                            />
-                            <Column
-                                field="registersBefore"
-                                header="РЕГИСТРЫ ДО"
-                                body={(rowData) => (
-                                    <span className="font-mono text-orange-600">{rowData.registersBefore}</span>
-                                )}
-                            />
-                            <Column
-                                field="registersAfter"
-                                header="РЕГИСТРЫ ПОСЛЕ"
-                                body={(rowData) => (
-                                    <span className="font-mono text-green-600">{rowData.registersAfter}</span>
-                                )}
-                            />
-                            <Column
-                                field="flags"
-                                header="ФЛАГИ"
-                                body={(rowData) => (
-                                    <span className="font-mono text-purple-600">{rowData.flags}</span>
-                                )}
-                            />
-                        </DataTable>
-                    </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </Card>

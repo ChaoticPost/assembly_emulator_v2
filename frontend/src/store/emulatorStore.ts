@@ -387,7 +387,7 @@ export const useEmulatorStore = create<{
 
             let stepCount = 0;
             const maxSteps = 1000; // Защита от бесконечного цикла
-            let lastState = null;
+            const stepDelay = 50; // Задержка между шагами в миллисекундах для визуализации
 
             while (stepCount < maxSteps) {
                 const result = await apiService.executeStep();
@@ -399,47 +399,44 @@ export const useEmulatorStore = create<{
 
                 stepCount++;
                 // КРИТИЧНО: Создаем новый массив RAM для реактивности Zustand
-                lastState = {
+                const newState = {
                     ...result.state,
                     memory: {
                         ...result.state.memory,
                         ram: result.state.memory?.ram ? [...result.state.memory.ram] : []
                     }
                 };
+                
+                // Обновляем состояние после каждого шага для визуализации в реальном времени
+                set({ state: newState });
+                
                 console.log(`Шаг ${stepCount}: Счетчик ${result.state.processor.program_counter}, Регистры ${result.state.processor.registers}`);
 
                 // Если программа остановлена, выходим из цикла
                 if (result.state.processor.is_halted) {
                     console.log('Программа остановлена');
+                    set({ loading: false });
                     break;
                 }
 
                 // Если больше нет команд для выполнения
                 if (!result.continues) {
                     console.log('Нет больше команд для выполнения');
+                    set({ loading: false });
                     break;
                 }
 
-                // Быстрое выполнение без задержки для лучшей производительности
-                // await new Promise(resolve => setTimeout(resolve, 50));
+                // Небольшая задержка для визуализации изменений в реальном времени
+                await new Promise(resolve => setTimeout(resolve, stepDelay));
             }
 
-            // Обновляем финальное состояние
-            if (lastState) {
-                // КРИТИЧНО: Создаем новый массив RAM для реактивности Zustand
-                const newState = {
-                    ...lastState,
-                    memory: {
-                        ...lastState.memory,
-                        ram: lastState.memory?.ram ? [...lastState.memory.ram] : []
-                    }
-                };
-                set({ state: newState, loading: false });
-            } else {
+            // Если достигнут лимит шагов, завершаем выполнение
+            if (stepCount >= maxSteps) {
+                console.log(`Достигнут лимит шагов (${maxSteps})`);
                 set({ loading: false });
             }
 
-            console.log(`Выполнено ${stepCount} шагов. Финальный результат:`, lastState);
+            console.log(`Выполнено ${stepCount} шагов.`);
 
         } catch (error) {
             set({

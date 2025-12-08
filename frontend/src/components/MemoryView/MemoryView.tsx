@@ -241,6 +241,30 @@ export const MemoryView: React.FC = () => {
                 ramForStep = state.memory.ram && Array.isArray(state.memory.ram) ? state.memory.ram : null;
             }
 
+            // Для задачи 1: всегда используем текущее состояние RAM для адресов 0x0100-0x0107
+            // так как история может быть обрезана или не содержать актуальные данные
+            if (current_task === 1) {
+                if (state.memory.ram && Array.isArray(state.memory.ram) && state.memory.ram.length > 0x0107) {
+                    // Создаем копию ramForStep или новый массив
+                    const extendedRam = ramForStep ? [...ramForStep] : [];
+                    // Убеждаемся, что массив достаточно длинный
+                    while (extendedRam.length <= 0x0107) {
+                        extendedRam.push(0);
+                    }
+                    // Копируем актуальные значения из текущего состояния RAM для адресов 0x0100-0x0107
+                    // Это гарантирует, что мы показываем реальные данные, которые были записаны в память
+                    for (let addr = 0x0100; addr <= 0x0107; addr++) {
+                        if (addr < state.memory.ram.length) {
+                            extendedRam[addr] = state.memory.ram[addr];
+                        }
+                    }
+                    ramForStep = extendedRam;
+                } else if (!ramForStep || ramForStep.length <= 0x0107) {
+                    // Если текущее состояние тоже короткое, используем то, что есть
+                    ramForStep = state.memory.ram && Array.isArray(state.memory.ram) ? state.memory.ram : ramForStep;
+                }
+            }
+
             // Получаем значение аккумулятора R0 из истории для отображения промежуточных сумм
             let accumulatorValue = 0;
             if ((entry as any).registers_after && Array.isArray((entry as any).registers_after) && (entry as any).registers_after.length > 0) {
@@ -254,25 +278,33 @@ export const MemoryView: React.FC = () => {
                 accumulatorValue = currentRegisters[0] & 0xFFFF;
             }
 
-            // Логируем для отладки
-            if (index < 3 && current_task === 1) {
-                console.log(`MemoryView executionData[${index}]: Проверка RAM для задачи 1`);
-                console.log(`  entry.ram_after exists:`, !!((entry as any).ram_after));
-                console.log(`  entry.ram exists:`, !!((entry as any).ram));
-                console.log(`  ramForStep length:`, ramForStep?.length || 0);
-                if (ramForStep && ramForStep.length > 0x0107) {
-                    console.log(`  ramForStep[0x0100]:`, ramForStep[0x0100], `(type: ${typeof ramForStep[0x0100]})`);
-                    console.log(`  ramForStep[0x0105]:`, ramForStep[0x0105], `(type: ${typeof ramForStep[0x0105]})`);
-                    console.log(`  ramForStep[0x0106]:`, ramForStep[0x0106], `(type: ${typeof ramForStep[0x0106]})`);
-                }
-            }
-
             let ramHexValues: string[] = [];
             let ramDecValues: string[] = [];
 
             if (current_task === 1) {
                 // Для задачи 1 показываем только непустые ячейки массива из 0x0100-0x0107
                 // И значение аккумулятора R0 для показа промежуточной суммы
+
+                // Логируем для отладки первых нескольких шагов
+                if (index < 5) {
+                    console.log(`MemoryView executionData[${index}]: Проверка RAM для задачи 1`);
+                    console.log(`  entry.ram_after exists:`, !!((entry as any).ram_after));
+                    console.log(`  entry.ram exists:`, !!((entry as any).ram));
+                    console.log(`  ramForStep length:`, ramForStep?.length || 0);
+                    console.log(`  state.memory.ram length:`, state.memory.ram?.length || 0);
+                    if (ramForStep && ramForStep.length > 0x0107) {
+                        console.log(`  ramForStep[0x0100]:`, ramForStep[0x0100], `(type: ${typeof ramForStep[0x0100]})`);
+                        console.log(`  ramForStep[0x0101]:`, ramForStep[0x0101], `(type: ${typeof ramForStep[0x0101]})`);
+                        console.log(`  ramForStep[0x0102]:`, ramForStep[0x0102], `(type: ${typeof ramForStep[0x0102]})`);
+                        console.log(`  ramForStep[0x0105]:`, ramForStep[0x0105], `(type: ${typeof ramForStep[0x0105]})`);
+                        console.log(`  ramForStep[0x0106]:`, ramForStep[0x0106], `(type: ${typeof ramForStep[0x0106]})`);
+                    }
+                    if (state.memory.ram && state.memory.ram.length > 0x0107) {
+                        console.log(`  state.memory.ram[0x0100]:`, state.memory.ram[0x0100]);
+                        console.log(`  state.memory.ram[0x0101]:`, state.memory.ram[0x0101]);
+                        console.log(`  state.memory.ram[0x0102]:`, state.memory.ram[0x0102]);
+                    }
+                }
 
                 // Показываем только непустые элементы массива (размер + элементы)
                 for (let addr = 0x0100; addr <= 0x0107; addr++) {
@@ -290,13 +322,13 @@ export const MemoryView: React.FC = () => {
                     const unsigned = value >>> 0;
                     // Показываем только непустые ячейки (значение != 0)
                     if (unsigned !== 0) {
-                        ramHexValues.push(`0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
-                        ramDecValues.push(unsigned.toString());
+                    ramHexValues.push(`0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
+                    ramDecValues.push(unsigned.toString());
                     }
 
                     // Логируем для первых нескольких адресов
-                    if (index < 3 && (addr === 0x0100 || addr === 0x0105 || addr === 0x0106)) {
-                        console.log(`  Step ${index + 1}, addr=0x${addr.toString(16).toUpperCase().padStart(4, '0')}: rawValue=${ramForStep?.[addr]}, value=${value}, unsigned=${unsigned}`);
+                    if (index < 5 && (addr === 0x0100 || addr === 0x0101 || addr === 0x0102 || addr === 0x0105 || addr === 0x0106)) {
+                        console.log(`  Step ${index + 1}, addr=0x${addr.toString(16).toUpperCase().padStart(4, '0')}: rawValue=${ramForStep?.[addr]}, value=${value}, unsigned=${unsigned}, willShow=${unsigned !== 0}`);
                     }
                 }
 
@@ -396,11 +428,15 @@ export const MemoryView: React.FC = () => {
         current_task,
         state.processor.registers,
         state.processor.program_counter,
+        // Добавляем зависимость от RAM для задачи 1, чтобы пересчитывать при изменении памяти
+        current_task === 1 && state.memory.ram && state.memory.ram.length > 0x0107 
+            ? JSON.stringify(state.memory.ram.slice(0x0100, 0x0108)) 
+            : null,
         // Добавляем зависимость от содержимого истории для принудительного пересчета
         // Используем JSON.stringify для глубокого сравнения истории выполнения
-        // Для задачи 2 нужно включить адреса до 0x030A, для остальных - до 0x0200
+        // Для задачи 2 нужно включить адреса до 0x030A, для задачи 1 - до 0x0108, для остальных - до 0x0200
         memory.history.length > 0 ? JSON.stringify(memory.history.map((e: any) => {
-            const maxRamAddr = current_task === 2 ? 0x030A + 1 : 0x0200;
+            const maxRamAddr = current_task === 2 ? 0x030A + 1 : (current_task === 1 ? 0x0108 : 0x0200);
             return {
             phase: e.execution_phase,
                 ram_after: e.ram_after ? e.ram_after.slice(0, Math.min(e.ram_after.length, maxRamAddr)) : null,

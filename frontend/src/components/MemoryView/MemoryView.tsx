@@ -271,10 +271,10 @@ export const MemoryView: React.FC = () => {
             let ramDecValues: string[] = [];
 
             if (current_task === 1) {
-                // Для задачи 1 показываем элементы массива из 0x0100-0x0107
+                // Для задачи 1 показываем только непустые ячейки массива из 0x0100-0x0107
                 // И значение аккумулятора R0 для показа промежуточной суммы
 
-                // Показываем элементы массива (размер + элементы)
+                // Показываем только непустые элементы массива (размер + элементы)
                 for (let addr = 0x0100; addr <= 0x0107; addr++) {
                     let value = 0;
                     if (ramForStep && Array.isArray(ramForStep) && ramForStep.length > addr) {
@@ -288,8 +288,11 @@ export const MemoryView: React.FC = () => {
                         }
                     }
                     const unsigned = value >>> 0;
-                    ramHexValues.push(`0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
-                    ramDecValues.push(unsigned.toString());
+                    // Показываем только непустые ячейки (значение != 0)
+                    if (unsigned !== 0) {
+                        ramHexValues.push(`0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
+                        ramDecValues.push(unsigned.toString());
+                    }
 
                     // Логируем для первых нескольких адресов
                     if (index < 3 && (addr === 0x0100 || addr === 0x0105 || addr === 0x0106)) {
@@ -299,16 +302,19 @@ export const MemoryView: React.FC = () => {
 
                 // Добавляем значение аккумулятора R0 для показа промежуточной суммы
                 // Это покажет, как накапливается сумма при выполнении программы
+                // R0 показываем всегда, даже если он равен 0, так как это промежуточная сумма
                 const accUnsigned = accumulatorValue >>> 0;
                 ramHexValues.push(`R0:0x${accUnsigned.toString(16).toUpperCase().padStart(4, '0')}`);
                 ramDecValues.push(`R0:${accUnsigned}`);
             } else if (current_task === 2) {
-                // Для задачи 2 показываем диапазоны массивов A и B
+                // Для задачи 2 показываем только непустые ячейки массивов A и B с адресами
+                // Массив A: 0x0200-0x020A
                 for (let addr = 0x0200; addr <= 0x020A; addr++) {
                     let value = 0;
-                    if (ramForStep && ramForStep.length > addr) {
+                    if (ramForStep && Array.isArray(ramForStep) && ramForStep.length > addr) {
                         const rawValue = ramForStep[addr];
-                        if (rawValue !== undefined && rawValue !== null) {
+                        // Более тщательная проверка значения
+                        if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
                             const numValue = typeof rawValue === 'string' ? parseInt(rawValue, 10) : Number(rawValue);
                             if (!isNaN(numValue)) {
                                 value = numValue & 0xFFFF;
@@ -316,14 +322,21 @@ export const MemoryView: React.FC = () => {
                         }
                     }
                     const unsigned = value >>> 0;
-                    ramHexValues.push(`0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
-                    ramDecValues.push(unsigned.toString());
+                    // Показываем только непустые ячейки (значение != 0)
+                    if (unsigned !== 0) {
+                        // Показываем адрес и значение в hex формате: [0x0200]=0x000A
+                        ramHexValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
+                        // Показываем адрес и значение в dec формате: [0x0200]=10
+                        ramDecValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=${unsigned}`);
                 }
+                }
+                // Массив B: 0x0300-0x030A
                 for (let addr = 0x0300; addr <= 0x030A; addr++) {
                     let value = 0;
-                    if (ramForStep && ramForStep.length > addr) {
+                    if (ramForStep && Array.isArray(ramForStep) && ramForStep.length > addr) {
                         const rawValue = ramForStep[addr];
-                        if (rawValue !== undefined && rawValue !== null) {
+                        // Более тщательная проверка значения
+                        if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
                             const numValue = typeof rawValue === 'string' ? parseInt(rawValue, 10) : Number(rawValue);
                             if (!isNaN(numValue)) {
                                 value = numValue & 0xFFFF;
@@ -331,8 +344,27 @@ export const MemoryView: React.FC = () => {
                         }
                     }
                     const unsigned = value >>> 0;
-                    ramHexValues.push(`0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
-                    ramDecValues.push(unsigned.toString());
+                    // Показываем только непустые ячейки (значение != 0)
+                    if (unsigned !== 0) {
+                        // Показываем адрес и значение в hex формате: [0x0300]=0x000A
+                        ramHexValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
+                        // Показываем адрес и значение в dec формате: [0x0300]=10
+                        ramDecValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=${unsigned}`);
+                    }
+                }
+                
+                // Логируем для отладки первых нескольких шагов
+                if (index < 3) {
+                    console.log(`MemoryView executionData[${index}]: Проверка RAM для задачи 2`);
+                    console.log(`  entry.ram_after exists:`, !!((entry as any).ram_after));
+                    console.log(`  entry.ram exists:`, !!((entry as any).ram));
+                    console.log(`  ramForStep length:`, ramForStep?.length || 0);
+                    if (ramForStep && ramForStep.length > 0x030A) {
+                        console.log(`  ramForStep[0x0200]:`, ramForStep[0x0200], `(type: ${typeof ramForStep[0x0200]})`);
+                        console.log(`  ramForStep[0x0201]:`, ramForStep[0x0201], `(type: ${typeof ramForStep[0x0201]})`);
+                        console.log(`  ramForStep[0x0300]:`, ramForStep[0x0300], `(type: ${typeof ramForStep[0x0300]})`);
+                        console.log(`  ramForStep[0x0301]:`, ramForStep[0x0301], `(type: ${typeof ramForStep[0x0301]})`);
+                    }
                 }
             } else {
                 // Для остальных задач показываем первые непустые значения до 0x0100
@@ -366,11 +398,15 @@ export const MemoryView: React.FC = () => {
         state.processor.program_counter,
         // Добавляем зависимость от содержимого истории для принудительного пересчета
         // Используем JSON.stringify для глубокого сравнения истории выполнения
-        memory.history.length > 0 ? JSON.stringify(memory.history.map((e: any) => ({
+        // Для задачи 2 нужно включить адреса до 0x030A, для остальных - до 0x0200
+        memory.history.length > 0 ? JSON.stringify(memory.history.map((e: any) => {
+            const maxRamAddr = current_task === 2 ? 0x030A + 1 : 0x0200;
+            return {
             phase: e.execution_phase,
-            ram_after: e.ram_after ? e.ram_after.slice(0, Math.min(e.ram_after.length, 0x0200)) : null,
-            ram: e.ram ? e.ram.slice(0, Math.min(e.ram.length, 0x0200)) : null
-        }))) : null,
+                ram_after: e.ram_after ? e.ram_after.slice(0, Math.min(e.ram_after.length, maxRamAddr)) : null,
+                ram: e.ram ? e.ram.slice(0, Math.min(e.ram.length, maxRamAddr)) : null
+            };
+        })) : null,
     ]);
 
     // Отслеживаем изменения для анимации
@@ -473,18 +509,22 @@ export const MemoryView: React.FC = () => {
                                         />
                                         <Column
                                             field="ramHex"
-                                            header="Значение (hex)"
-                                            style={{ width: '200px' }}
+                                            header="Память (hex)"
+                                            style={{ width: '400px' }}
                                             body={(rowData) => (
-                                                <span className="font-mono text-blue-600 text-xs">{rowData.ramHex || '-'}</span>
+                                                <div className="font-mono text-blue-600 text-xs whitespace-pre-wrap break-words">
+                                                    {rowData.ramHex || '-'}
+                                                </div>
                                             )}
                                         />
                                         <Column
                                             field="ramDec"
-                                            header="Значение (dec)"
-                                            style={{ width: '200px' }}
+                                            header="Память (dec)"
+                                            style={{ width: '400px' }}
                                             body={(rowData) => (
-                                                <span className="font-mono text-gray-600 text-xs">{rowData.ramDec || '-'}</span>
+                                                <div className="font-mono text-gray-600 text-xs whitespace-pre-wrap break-words">
+                                                    {rowData.ramDec || '-'}
+                                                </div>
                                             )}
                                         />
                                     </DataTable>

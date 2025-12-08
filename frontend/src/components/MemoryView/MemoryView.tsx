@@ -322,7 +322,16 @@ export const MemoryView: React.FC = () => {
                 ramDec: ramDecValues.length > 0 ? ramDecValues.join(', ') : '-'
             };
         });
-    }, [memory.history, state.memory.ram, current_task, state.processor.registers]);
+    }, [
+        memory.history,
+        state.memory.ram,
+        current_task,
+        state.processor.registers,
+        state.processor.program_counter,
+        // Добавляем зависимость от содержимого RAM для принудительного пересчета
+        // Используем JSON.stringify для глубокого сравнения содержимого RAM
+        state.memory.ram ? JSON.stringify(state.memory.ram.slice(0, Math.min(state.memory.ram.length, 0x0200))) : null,
+    ]);
 
     // Отслеживаем изменения для анимации
     useEffect(() => {

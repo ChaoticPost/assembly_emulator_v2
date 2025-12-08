@@ -4,7 +4,30 @@ import { useEmulatorStore } from '../../store/emulatorStore';
 import './ControlPanel.css';
 
 export const ControlPanel: React.FC = () => {
-  const { executeStep, executeRemaining, reset, loadTask1Data, loadTask2Data, loading, current_task } = useEmulatorStore();
+  const { executeStep, executeRemaining, reset, loadTask1Data, loadTask2Data, loading, current_task, state } = useEmulatorStore();
+
+  const handleStepClick = async () => {
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('🔹 НАЖАТИЕ НА КНОПКУ "СЛЕДУЮЩИЙ ШАГ"');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('Текущее состояние перед шагом:');
+    console.log('  PC:', state.processor.program_counter);
+    console.log('  Регистры:', state.processor.registers);
+    console.log('  RAM.length:', state.memory.ram?.length || 0);
+    if (current_task === 1 && state.memory.ram && state.memory.ram.length > 0x0107) {
+      console.log('  RAM[0x0100]:', state.memory.ram[0x0100], `(0x${(state.memory.ram[0x0100] || 0).toString(16).toUpperCase().padStart(4, '0')})`);
+      console.log('  RAM[0x0105]:', state.memory.ram[0x0105], `(0x${(state.memory.ram[0x0105] || 0).toString(16).toUpperCase().padStart(4, '0')})`);
+      console.log('  RAM[0x0106]:', state.memory.ram[0x0106], `(0x${(state.memory.ram[0x0106] || 0).toString(16).toUpperCase().padStart(4, '0')})`);
+    }
+    console.log('  История выполнения:', state.memory.history?.length || 0, 'записей');
+    console.log('═══════════════════════════════════════════════════════════════');
+
+    await executeStep();
+
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('🔹 ШАГ ВЫПОЛНЕН');
+    console.log('═══════════════════════════════════════════════════════════════');
+  };
 
   return (
     <Card className="glass-card p-6">
@@ -17,7 +40,7 @@ export const ControlPanel: React.FC = () => {
           color="light"
           size="lg"
           className="step-button h-16 flex flex-col items-center justify-center space-y-2"
-          onClick={executeStep}
+          onClick={handleStepClick}
           disabled={loading}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

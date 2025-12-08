@@ -72,9 +72,18 @@ export const useEmulatorStore = create<{
                 console.log('[setCurrentTask] Загружаем данные задачи', taskId);
                 const result = await apiService.loadTask(taskId);
                 if (result.success) {
+                    // КРИТИЧНО: Создаем новый массив RAM для реактивности Zustand
+                    const newState = {
+                        ...result.state,
+                        current_task: taskId,
+                        memory: {
+                            ...result.state.memory,
+                            ram: result.state.memory?.ram ? [...result.state.memory.ram] : []
+                        }
+                    };
                     // ВАЖНО: сохраняем current_task при обновлении состояния
                     set({
-                        state: { ...result.state, current_task: taskId },
+                        state: newState,
                         current_task: taskId
                     });
                     console.log('[setCurrentTask] Данные задачи загружены, current_task сохранен:', taskId);
@@ -118,12 +127,20 @@ export const useEmulatorStore = create<{
             console.log('Загружаем данные для задачи 2');
             const result = await apiService.loadTask(2);
             if (result.success) {
+                // КРИТИЧНО: Создаем новый массив RAM для реактивности Zustand
+                const newState = {
+                    ...result.state,
+                    memory: {
+                        ...result.state.memory,
+                        ram: result.state.memory?.ram ? [...result.state.memory.ram] : []
+                    }
+                };
                 set({
-                    state: result.state,
+                    state: newState,
                     current_task: 2,
                     loading: false
                 });
-                console.log('Данные задачи 2 загружены:', result.state);
+                console.log('Данные задачи 2 загружены:', newState);
             } else {
                 set({ error: 'Ошибка загрузки данных задачи 2', loading: false });
             }
@@ -208,13 +225,19 @@ export const useEmulatorStore = create<{
                     console.log('[COMPILE] Получено состояние с бэкенда после компиляции');
                     console.log('[COMPILE] memory.ram.length:', backendState.memory?.ram?.length);
                     console.log('[COMPILE] memory.ram[0x0100]:', backendState.memory?.ram?.[0x0100] ?? 'не найдено');
+                    // КРИТИЧНО: Создаем новый массив RAM для реактивности Zustand
+                    const newState = {
+                        ...backendState,
+                        source_code: code,
+                        machine_code: result.machine_code,
+                        current_task: taskId || backendState.current_task,
+                        memory: {
+                            ...backendState.memory,
+                            ram: backendState.memory?.ram ? [...backendState.memory.ram] : []
+                        }
+                    };
                     set({
-                        state: {
-                            ...backendState,
-                            source_code: code,
-                            machine_code: result.machine_code,
-                            current_task: taskId || backendState.current_task
-                        },
+                        state: newState,
                         current_task: taskId || backendState.current_task,
                         loading: false
                     });
@@ -265,7 +288,15 @@ export const useEmulatorStore = create<{
 
             const result = await apiService.executeCode(request);
             if (result.success) {
-                set({ state: result.state, loading: false });
+                // КРИТИЧНО: Создаем новый массив RAM для реактивности Zustand
+                const newState = {
+                    ...result.state,
+                    memory: {
+                        ...result.state.memory,
+                        ram: result.state.memory?.ram ? [...result.state.memory.ram] : []
+                    }
+                };
+                set({ state: newState, loading: false });
             } else {
                 set({ error: 'Ошибка выполнения', loading: false });
             }
@@ -295,9 +326,18 @@ export const useEmulatorStore = create<{
 
             const result = await apiService.executeStep();
             if (result.success) {
+                // КРИТИЧНО: Создаем новый массив RAM для реактивности Zustand
+                const newState = {
+                    ...result.state,
+                    memory: {
+                        ...result.state.memory,
+                        ram: result.state.memory?.ram ? [...result.state.memory.ram] : []
+                    }
+                };
+
                 // Логируем состояние RAM для отладки
-                if (result.state?.memory?.ram) {
-                    const ram = result.state.memory.ram;
+                if (newState.memory?.ram) {
+                    const ram = newState.memory.ram;
                     console.log('executeStep: RAM обновлен, length=', ram.length);
                     console.log('executeStep: RAM is array?', Array.isArray(ram));
                     if (ram.length > 0x0107) {
@@ -306,8 +346,8 @@ export const useEmulatorStore = create<{
                         console.log('executeStep: ram[0x0106]=', ram[0x0106], `(type: ${typeof ram[0x0106]}, 0x${(ram[0x0106] || 0).toString(16).toUpperCase().padStart(4, '0')})`);
                     }
                 }
-                set({ state: result.state, loading: false });
-                console.log('Шаг выполнен, state.memory.ram.length=', result.state?.memory?.ram?.length);
+                set({ state: newState, loading: false });
+                console.log('Шаг выполнен, state.memory.ram.length=', newState.memory?.ram?.length);
             } else {
                 set({ error: 'Ошибка выполнения шага', loading: false });
             }
@@ -330,7 +370,15 @@ export const useEmulatorStore = create<{
                 console.log('Загружаем данные задачи', current_task);
                 const result = await apiService.loadTask(current_task);
                 if (result.success) {
-                    set({ state: result.state, loading: false });
+                    // КРИТИЧНО: Создаем новый массив RAM для реактивности Zustand
+                    const newState = {
+                        ...result.state,
+                        memory: {
+                            ...result.state.memory,
+                            ram: result.state.memory?.ram ? [...result.state.memory.ram] : []
+                        }
+                    };
+                    set({ state: newState, loading: false });
                     return;
                 }
             }
@@ -350,7 +398,14 @@ export const useEmulatorStore = create<{
                 }
 
                 stepCount++;
-                lastState = result.state;
+                // КРИТИЧНО: Создаем новый массив RAM для реактивности Zustand
+                lastState = {
+                    ...result.state,
+                    memory: {
+                        ...result.state.memory,
+                        ram: result.state.memory?.ram ? [...result.state.memory.ram] : []
+                    }
+                };
                 console.log(`Шаг ${stepCount}: Счетчик ${result.state.processor.program_counter}, Регистры ${result.state.processor.registers}`);
 
                 // Если программа остановлена, выходим из цикла
@@ -371,7 +426,15 @@ export const useEmulatorStore = create<{
 
             // Обновляем финальное состояние
             if (lastState) {
-                set({ state: lastState, loading: false });
+                // КРИТИЧНО: Создаем новый массив RAM для реактивности Zustand
+                const newState = {
+                    ...lastState,
+                    memory: {
+                        ...lastState.memory,
+                        ram: lastState.memory?.ram ? [...lastState.memory.ram] : []
+                    }
+                };
+                set({ state: newState, loading: false });
             } else {
                 set({ loading: false });
             }
@@ -391,12 +454,20 @@ export const useEmulatorStore = create<{
             set({ loading: true, error: null });
             const result = await apiService.reset();
             if (result.success) {
+                // КРИТИЧНО: Создаем новый массив RAM для реактивности Zustand
+                const newState = {
+                    ...result.state,
+                    memory: {
+                        ...result.state.memory,
+                        ram: result.state.memory?.ram ? [...result.state.memory.ram] : []
+                    }
+                };
                 set({
-                    state: result.state,
+                    state: newState,
                     loading: false,
                     error: null
                 });
-                console.log('Процессор сброшен:', result.state);
+                console.log('Процессор сброшен:', newState);
             } else {
                 set({ error: 'Ошибка сброса', loading: false });
             }

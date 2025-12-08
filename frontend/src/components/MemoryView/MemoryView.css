@@ -88,6 +88,28 @@
   background: rgba(34, 197, 94, 0.02);
 }
 
+/* Стили для выделения изменённых ячеек памяти */
+.ram-table .p-datatable-tbody > tr.changed-memory-row > td {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.15)) !important;
+  border-left: 3px solid #10b981;
+  animation: memoryChange 0.5s ease-in-out;
+}
+
+.ram-table .p-datatable-tbody > tr.changed-memory-row:hover > td {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(16, 185, 129, 0.25)) !important;
+}
+
+/* Стили для выделения текущей команды */
+.ram-table .p-datatable-tbody > tr.current-command-row > td {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(234, 179, 8, 0.2)) !important;
+  border-left: 3px solid #f59e0b;
+  font-weight: 600;
+}
+
+.ram-table .p-datatable-tbody > tr.current-command-row:hover > td {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(234, 179, 8, 0.3)) !important;
+}
+
 /* ADD: Enhanced empty state styling */
 .history-table .p-datatable-tbody > tr > td[colspan],
 .ram-table .p-datatable-tbody > tr > td[colspan] {

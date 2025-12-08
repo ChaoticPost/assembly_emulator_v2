@@ -9,7 +9,7 @@ export const ProcessorView: React.FC = () => {
   const [previousCounter, setPreviousCounter] = useState(processor.program_counter);
   const [animateCounter, setAnimateCounter] = useState(false);
   const [taskTestData, setTaskTestData] = useState<number[] | null>(null);
-  
+
   // Отладочная информация
   useEffect(() => {
     console.log('ProcessorView: состояние обновлено', {
@@ -22,19 +22,19 @@ export const ProcessorView: React.FC = () => {
       cycles: processor.cycles
     });
   }, [processor]);
-  
+
   // Убеждаемся, что регистры всегда инициализированы
   // Используем useMemo для предотвращения лишних пересчетов
   const displayRegisters = useMemo(() => {
     // Получаем регистры из состояния процессора
     let regs = processor.registers;
-    
+
     // Проверяем, что регистры существуют и это массив
     if (!regs || !Array.isArray(regs)) {
       console.warn('ProcessorView: регистры не инициализированы, используем нули');
       return [0, 0, 0, 0, 0, 0, 0, 0];
     }
-    
+
     // Гарантируем, что у нас есть ровно 8 регистров
     const result = [];
     for (let i = 0; i < 8; i++) {
@@ -42,10 +42,10 @@ export const ProcessorView: React.FC = () => {
       // Если значение undefined или null, используем 0
       result[i] = (value !== undefined && value !== null) ? value : 0;
     }
-    
+
     // Отладочная информация
     console.log('ProcessorView: displayRegisters =', result);
-    
+
     return result;
   }, [processor.registers]);
 
@@ -55,7 +55,7 @@ export const ProcessorView: React.FC = () => {
     if (value === undefined || value === null) {
       return isHex ? '0x0000' : '0';
     }
-    
+
     if (isHex) {
       // Ограничиваем значение 16-битным диапазоном (0x0000 - 0xFFFF)
       // Обрабатываем как положительные, так и отрицательные числа
@@ -94,7 +94,7 @@ export const ProcessorView: React.FC = () => {
       setPreviousFlags(processor.flags || { zero: false, carry: false, overflow: false, negative: false });
       return;
     }
-    
+
     const flagsChanged = {
       zero: processor.flags.zero !== previousFlags.zero,
       carry: processor.flags.carry !== previousFlags.carry,
@@ -140,11 +140,11 @@ export const ProcessorView: React.FC = () => {
     if (current_task !== 1) {
       return null;
     }
-    
+
     // Сначала пытаемся получить данные из памяти (для шаблона с ручной инициализацией)
     let size: number | null = null;
     let elements: number[] = [];
-    
+
     if (state.memory.ram && state.memory.ram.length > 0x0107) {
       // Читаем размер массива из памяти по адресу 0x0100
       const sizeValue = state.memory.ram[0x0100];
@@ -171,7 +171,7 @@ export const ProcessorView: React.FC = () => {
         }
       }
     }
-    
+
     // Если данные из памяти не получены, используем test_data (для примера с автоматической загрузкой)
     if (!size || elements.length === 0) {
       if (!taskTestData || taskTestData.length < 2) {
@@ -181,17 +181,17 @@ export const ProcessorView: React.FC = () => {
       size = taskTestData[0];
       elements = taskTestData.slice(1, 1 + size);
     }
-    
+
     if (elements.length === 0) {
       return null;
     }
-    
+
     const actualSum = state.processor.registers[0] || 0;
-    
+
     // Формируем строку: элемент1+элемент2+... = сумма (hex)
     const elementsStr = elements.join('+');
     const hexSum = formatValue(actualSum, true);
-    
+
     return `${elementsStr} = ${actualSum} (${hexSum})`;
   }, [taskTestData, current_task, state.processor.registers[0], state.memory.ram]);
 
@@ -212,20 +212,20 @@ export const ProcessorView: React.FC = () => {
               {/* Гарантируем отображение всех 8 регистров R0-R7 */}
               {Array.from({ length: 8 }, (_, index) => {
                 // Получаем значение регистра из displayRegisters
-                const registerValue = displayRegisters[index] !== undefined && displayRegisters[index] !== null 
-                  ? displayRegisters[index] 
+                const registerValue = displayRegisters[index] !== undefined && displayRegisters[index] !== null
+                  ? displayRegisters[index]
                   : 0;
-                
+
                 // Форматируем значение в hex
                 const hexValue = formatValue(registerValue, true);
-                
+
                 return (
-                  <div 
-                    key={`register-R${index}`} 
+                  <div
+                    key={`register-R${index}`}
                     className="register-item"
-                    style={{ 
-                      display: 'flex', 
-                      visibility: 'visible', 
+                    style={{
+                      display: 'flex',
+                      visibility: 'visible',
                       opacity: 1,
                       backgroundColor: 'rgba(255, 255, 255, 0.95)'
                     }}
@@ -292,36 +292,130 @@ export const ProcessorView: React.FC = () => {
               {state.processor.is_halted && state.processor.cycles > 0 ? 'Итог' : 'Флаги состояния'}
             </label>
             {current_task === 1 && state.processor.is_halted && state.processor.cycles > 0 ? (
-              <div className="task-result">
-                <div className="task-result-value">
-                  {formatValue(state.processor.registers[0] || 0, true)}
+              <>
+                <div className="task-result">
+                  <div className="task-result-value">
+                    {formatValue(state.processor.registers[0] || 0, true)}
+                  </div>
+                  <div className="task-result-title">
+                    Сумма элементов массива
+                  </div>
+                  <div className="task-result-desc">
+                    {formatTask1Result || `Результат: ${formatValue(state.processor.registers[0], true)} (${state.processor.registers[0] || 0})`}
+                  </div>
                 </div>
-                <div className="task-result-title">
-                  Сумма элементов массива
+                <div className="flags-grid" style={{ marginTop: '1.5rem' }}>
+                  {/* Zero Flag */}
+                  <div className="flag-item">
+                    <div className={`flag-indicator ${processor.flags?.zero ? 'flag-active' : 'flag-inactive'}`}>
+                      {processor.flags?.zero ? '1' : '0'}
+                    </div>
+                    <div className="flag-name">Zero</div>
+                    <div className="flag-desc">
+                      {processor.flags?.zero ? 'ноль' : 'не ноль'}
+                    </div>
+                  </div>
+
+                  {/* Carry Flag */}
+                  <div className="flag-item">
+                    <div className={`flag-indicator ${processor.flags?.carry ? 'flag-active' : 'flag-inactive'}`}>
+                      {processor.flags?.carry ? '1' : '0'}
+                    </div>
+                    <div className="flag-name">Carry</div>
+                    <div className="flag-desc">
+                      {processor.flags?.carry ? 'перенос' : 'нет переноса'}
+                    </div>
+                  </div>
+
+                  {/* Overflow Flag */}
+                  <div className="flag-item">
+                    <div className={`flag-indicator ${processor.flags?.overflow ? 'flag-active' : 'flag-inactive'}`}>
+                      {processor.flags?.overflow ? '1' : '0'}
+                    </div>
+                    <div className="flag-name">Overflow</div>
+                    <div className="flag-desc">
+                      {processor.flags?.overflow ? 'переполнение' : 'нет переполнения'}
+                    </div>
+                  </div>
+
+                  {/* Negative Flag */}
+                  <div className="flag-item">
+                    <div className={`flag-indicator ${processor.flags?.negative ? 'flag-active' : 'flag-inactive'}`}>
+                      {processor.flags?.negative ? '1' : '0'}
+                    </div>
+                    <div className="flag-name">Negative</div>
+                    <div className="flag-desc">
+                      {processor.flags?.negative ? 'отрицательное' : 'положительное'}
+                    </div>
+                  </div>
                 </div>
-                <div className="task-result-desc">
-                  {formatTask1Result || `Результат: ${formatValue(state.processor.registers[0], true)} (${state.processor.registers[0] || 0})`}
-                </div>
-              </div>
+              </>
             ) : current_task === 2 && state.processor.is_halted && state.processor.cycles > 0 ? (
-              <div className="task-result">
-                <div className="task-result-value">
-                  {(() => {
-                    // Для задачи 2 результат находится в R0 (аккумулятор)
-                    const r0Value = displayRegisters[0] || 0;
-                    return `0x${r0Value.toString(16).toUpperCase().padStart(4, '0')}`;
-                  })()}
+              <>
+                <div className="task-result">
+                  <div className="task-result-value">
+                    {(() => {
+                      // Для задачи 2 результат находится в R0 (аккумулятор)
+                      const r0Value = displayRegisters[0] || 0;
+                      return `0x${r0Value.toString(16).toUpperCase().padStart(4, '0')}`;
+                    })()}
+                  </div>
+                  <div className="task-result-title">
+                    Свертка двух массивов
+                  </div>
+                  <div className="task-result-desc">
+                    {(() => {
+                      const r0Value = displayRegisters[0] || 0;
+                      return `${r0Value} в десятичной системе`;
+                    })()}
+                  </div>
                 </div>
-                <div className="task-result-title">
-                  Свертка двух массивов
+                <div className="flags-grid" style={{ marginTop: '1.5rem' }}>
+                  {/* Zero Flag */}
+                  <div className="flag-item">
+                    <div className={`flag-indicator ${processor.flags?.zero ? 'flag-active' : 'flag-inactive'}`}>
+                      {processor.flags?.zero ? '1' : '0'}
+                    </div>
+                    <div className="flag-name">Zero</div>
+                    <div className="flag-desc">
+                      {processor.flags?.zero ? 'ноль' : 'не ноль'}
+                    </div>
+                  </div>
+
+                  {/* Carry Flag */}
+                  <div className="flag-item">
+                    <div className={`flag-indicator ${processor.flags?.carry ? 'flag-active' : 'flag-inactive'}`}>
+                      {processor.flags?.carry ? '1' : '0'}
+                    </div>
+                    <div className="flag-name">Carry</div>
+                    <div className="flag-desc">
+                      {processor.flags?.carry ? 'перенос' : 'нет переноса'}
+                    </div>
+                  </div>
+
+                  {/* Overflow Flag */}
+                  <div className="flag-item">
+                    <div className={`flag-indicator ${processor.flags?.overflow ? 'flag-active' : 'flag-inactive'}`}>
+                      {processor.flags?.overflow ? '1' : '0'}
+                    </div>
+                    <div className="flag-name">Overflow</div>
+                    <div className="flag-desc">
+                      {processor.flags?.overflow ? 'переполнение' : 'нет переполнения'}
+                    </div>
+                  </div>
+
+                  {/* Negative Flag */}
+                  <div className="flag-item">
+                    <div className={`flag-indicator ${processor.flags?.negative ? 'flag-active' : 'flag-inactive'}`}>
+                      {processor.flags?.negative ? '1' : '0'}
+                    </div>
+                    <div className="flag-name">Negative</div>
+                    <div className="flag-desc">
+                      {processor.flags?.negative ? 'отрицательное' : 'положительное'}
+                    </div>
+                  </div>
                 </div>
-                <div className="task-result-desc">
-                  {(() => {
-                    const r0Value = displayRegisters[0] || 0;
-                    return `${r0Value} в десятичной системе`;
-                  })()}
-                </div>
-              </div>
+              </>
             ) : (
               <div className="flags-grid">
                 {/* Zero Flag */}

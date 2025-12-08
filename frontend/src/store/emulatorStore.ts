@@ -73,7 +73,7 @@ export const useEmulatorStore = create<{
                 const result = await apiService.loadTask(taskId);
                 if (result.success) {
                     // ВАЖНО: сохраняем current_task при обновлении состояния
-                    set({ 
+                    set({
                         state: { ...result.state, current_task: taskId },
                         current_task: taskId
                     });
@@ -164,20 +164,20 @@ export const useEmulatorStore = create<{
     compileCode: async (code: string) => {
         try {
             set({ loading: true, error: null });
-            
+
             // Если выбрана задача, автоматически загружаем данные задачи перед компиляцией
             const currentState = get();
             const current_task = currentState.current_task;
             const state_current_task = currentState.state.current_task;
-            
+
             console.log('=== COMPILE CODE START ===');
             console.log('current_task from store:', current_task);
             console.log('state.current_task:', state_current_task);
             console.log('memory.ram.length:', currentState.state.memory.ram.length);
             console.log('memory.ram[0x0100]:', currentState.state.memory.ram[0x0100]);
-            
+
             let taskState: EmulatorState | null = null;
-            
+
             // Используем current_task из store или из state
             // ВАЖНО: проверяем оба места и убеждаемся, что taskId не null/undefined
             let taskId: number | undefined = undefined;
@@ -186,21 +186,21 @@ export const useEmulatorStore = create<{
             } else if (state_current_task !== null && state_current_task !== undefined) {
                 taskId = state_current_task;
             }
-            
+
             console.log('[COMPILE] taskId для передачи в компиляцию:', taskId);
             console.log('[COMPILE] current_task from store:', current_task);
             console.log('[COMPILE] state.current_task:', state_current_task);
             console.log('[COMPILE] taskId после проверки:', taskId);
-            
+
             // НЕ загружаем задачу на фронтенде - пусть бэкенд сделает это
             // Это гарантирует, что данные загружаются в правильном порядке
-            
+
             console.log('[COMPILE] Отправляем запрос на компиляцию с task_id:', taskId);
             // Передаем task_id в запрос компиляции, чтобы бэкенд загрузил данные задачи
             // ВАЖНО: передаем taskId только если он определен (не null и не undefined)
             const result = await apiService.compileCode(code, taskId);
             console.log('[COMPILE] Результат компиляции:', result);
-            
+
             if (result.success) {
                 // Если бэкенд вернул состояние, используем его (включая память)
                 if ((result as any).state) {
@@ -295,8 +295,19 @@ export const useEmulatorStore = create<{
 
             const result = await apiService.executeStep();
             if (result.success) {
+                // Логируем состояние RAM для отладки
+                if (result.state?.memory?.ram) {
+                    const ram = result.state.memory.ram;
+                    console.log('executeStep: RAM обновлен, length=', ram.length);
+                    console.log('executeStep: RAM is array?', Array.isArray(ram));
+                    if (ram.length > 0x0107) {
+                        console.log('executeStep: ram[0x0100]=', ram[0x0100], `(type: ${typeof ram[0x0100]}, 0x${(ram[0x0100] || 0).toString(16).toUpperCase().padStart(4, '0')})`);
+                        console.log('executeStep: ram[0x0105]=', ram[0x0105], `(type: ${typeof ram[0x0105]}, 0x${(ram[0x0105] || 0).toString(16).toUpperCase().padStart(4, '0')})`);
+                        console.log('executeStep: ram[0x0106]=', ram[0x0106], `(type: ${typeof ram[0x0106]}, 0x${(ram[0x0106] || 0).toString(16).toUpperCase().padStart(4, '0')})`);
+                    }
+                }
                 set({ state: result.state, loading: false });
-                console.log('Шаг выполнен:', result.state);
+                console.log('Шаг выполнен, state.memory.ram.length=', result.state?.memory?.ram?.length);
             } else {
                 set({ error: 'Ошибка выполнения шага', loading: false });
             }

@@ -307,14 +307,77 @@ HALT
                     print(f"ERROR: Address 0x{addr:04X} out of bounds! memory_size={len(new_ram)}")
             
             # Присваиваем новый список памяти (Pydantic увидит изменение)
+            # ВАЖНО: создаем полностью новый список для Pydantic
             processor.memory.ram = list(new_ram)
             
-            # Проверяем, что данные действительно загружены
+            # Проверяем, что данные действительно загружены СРАЗУ после присваивания
             if 0x0200 < len(processor.memory.ram) and 0x0300 < len(processor.memory.ram):
                 verify_size_a = processor.memory.ram[0x0200]
                 verify_size_b = processor.memory.ram[0x0300]
                 print(f"VERIFY: memory.ram[0x0200] = {verify_size_a} (0x{verify_size_a:04X}), expected={size_a}")
                 print(f"VERIFY: memory.ram[0x0300] = {verify_size_b} (0x{verify_size_b:04X}), expected={size_b}")
+                
+                # Проверяем все элементы массива A
+                all_ok_a = True
+                for i, expected_value in enumerate(a_vals):
+                    addr = 0x0200 + i + 1
+                    if addr < len(processor.memory.ram):
+                        actual_val = processor.memory.ram[addr]
+                        if actual_val != expected_value:
+                            print(f"ERROR: memory.ram[0x{addr:04X}] (A[{i}]) = {actual_val}, expected={expected_value}")
+                            all_ok_a = False
+                        else:
+                            print(f"OK: memory.ram[0x{addr:04X}] (A[{i}]) = {actual_val} (0x{actual_val:04X}) ✓")
+                    else:
+                        print(f"ERROR: Address 0x{addr:04X} out of bounds for verification!")
+                        all_ok_a = False
+                
+                # Проверяем все элементы массива B
+                all_ok_b = True
+                for i, expected_value in enumerate(b_vals):
+                    addr = 0x0300 + i + 1
+                    if addr < len(processor.memory.ram):
+                        actual_val = processor.memory.ram[addr]
+                        if actual_val != expected_value:
+                            print(f"ERROR: memory.ram[0x{addr:04X}] (B[{i}]) = {actual_val}, expected={expected_value}")
+                            all_ok_b = False
+                        else:
+                            print(f"OK: memory.ram[0x{addr:04X}] (B[{i}]) = {actual_val} (0x{actual_val:04X}) ✓")
+                    else:
+                        print(f"ERROR: Address 0x{addr:04X} out of bounds for verification!")
+                        all_ok_b = False
+                
+                # Если данные не записались, принудительно исправляем
+                if verify_size_a != size_a or verify_size_b != size_b or not all_ok_a or not all_ok_b:
+                    print(f"ERROR: Данные не совпадают! Принудительно исправляем память для задачи 2")
+                    # Создаем новый список с правильными данными
+                    fixed_ram = list(processor.memory.ram)
+                    # Гарантируем достаточный размер
+                    while len(fixed_ram) < required_size:
+                        fixed_ram.append(0)
+                    # Устанавливаем размер массива A
+                    fixed_ram[0x0200] = int(size_a) & 0xFFFF
+                    # Обновляем элементы массива A
+                    for i, value in enumerate(a_vals):
+                        addr = 0x0200 + i + 1
+                        if addr < len(fixed_ram):
+                            fixed_ram[addr] = int(value) & 0xFFFF
+                            print(f"FORCE FIX: fixed_ram[0x{addr:04X}] (A[{i}]) = {value} (0x{value:04X})")
+                    # Устанавливаем размер массива B
+                    fixed_ram[0x0300] = int(size_b) & 0xFFFF
+                    # Обновляем элементы массива B
+                    for i, value in enumerate(b_vals):
+                        addr = 0x0300 + i + 1
+                        if addr < len(fixed_ram):
+                            fixed_ram[addr] = int(value) & 0xFFFF
+                            print(f"FORCE FIX: fixed_ram[0x{addr:04X}] (B[{i}]) = {value} (0x{value:04X})")
+                    # Присваиваем исправленную память (создаем новый объект для Pydantic)
+                    processor.memory = MemoryState(ram=fixed_ram, history=processor.memory.history)
+                    print(f"FORCE FIX: Память исправлена для задачи 2, проверка: memory.ram[0x0200]={processor.memory.ram[0x0200]}, memory.ram[0x0300]={processor.memory.ram[0x0300]}")
+                else:
+                    print(f"OK: Все данные задачи 2 успешно записаны в память")
+            else:
+                print(f"ERROR: Cannot verify - memory too small! memory_size={len(processor.memory.ram)}")
             
             a_mem = [f"0x{v:04X}" for v in processor.memory.ram[0x0200:0x020B]] if len(processor.memory.ram) > 0x020A else []
             b_mem = [f"0x{v:04X}" for v in processor.memory.ram[0x0300:0x030B]] if len(processor.memory.ram) > 0x030A else []

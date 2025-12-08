@@ -457,8 +457,25 @@ async def execute_step():
         # Сохраняем память ПЕРЕД выполнением шага (чтобы не потерять данные)
         ram_before_step = list(emulator.processor.memory.ram) if emulator.processor.memory.ram else []
         
+        # Определяем текущую задачу
+        current_task = emulator.current_task if hasattr(emulator, 'current_task') else None
+        
         # Проверяем память перед выполнением шага
-        if ram_before_step and 0x0100 < len(ram_before_step):
+        if current_task == 2:
+            # Для задачи 2 проверяем адреса 0x0200 и 0x0300
+            if ram_before_step and 0x0200 < len(ram_before_step) and 0x0300 < len(ram_before_step):
+                mem_val_a = ram_before_step[0x0200]
+                mem_val_b = ram_before_step[0x0300]
+                print(f"DEBUG step endpoint: Память ПЕРЕД шагом (задача 2), ram[0x0200]={mem_val_a} (0x{mem_val_a:04X}), ram[0x0300]={mem_val_b} (0x{mem_val_b:04X}), size={len(ram_before_step)}")
+            else:
+                print(f"DEBUG step endpoint: Память слишком мала или пустая для задачи 2! length={len(ram_before_step)}")
+                # Инициализируем память, если она пустая
+                if not ram_before_step or len(ram_before_step) == 0:
+                    min_size = max(0x030A, emulator.processor.memory_size)
+                    emulator.processor.memory.ram = [0] * min_size
+                    ram_before_step = list(emulator.processor.memory.ram)
+                    print(f"DEBUG step endpoint: Инициализирована память размером {min_size}")
+        elif ram_before_step and 0x0100 < len(ram_before_step):
             mem_val = ram_before_step[0x0100]
             print(f"DEBUG step endpoint: Память ПЕРЕД шагом, ram[0x0100]={mem_val} (0x{mem_val:04X}), size={len(ram_before_step)}")
         else:
@@ -494,36 +511,90 @@ async def execute_step():
         
         # Проверяем память после выполнения шага
         ram_after_step = list(emulator.processor.memory.ram) if emulator.processor.memory.ram else []
-        if ram_after_step and 0x0100 < len(ram_after_step):
+        
+        if current_task == 2:
+            # Для задачи 2 проверяем адреса 0x0200 и 0x0300
+            if ram_after_step and 0x0200 < len(ram_after_step) and 0x0300 < len(ram_after_step):
+                mem_val_a = ram_after_step[0x0200]
+                mem_val_b = ram_after_step[0x0300]
+                print(f"DEBUG step endpoint: Память ПОСЛЕ шага (задача 2), ram[0x0200]={mem_val_a} (0x{mem_val_a:04X}), ram[0x0300]={mem_val_b} (0x{mem_val_b:04X}), size={len(ram_after_step)}")
+            else:
+                print(f"DEBUG step endpoint: Память слишком мала для задачи 2! length={len(ram_after_step)}")
+        elif ram_after_step and 0x0100 < len(ram_after_step):
             mem_val = ram_after_step[0x0100]
             print(f"DEBUG step endpoint: Память ПОСЛЕ шага, ram[0x0100]={mem_val} (0x{mem_val:04X}), size={len(ram_after_step)}")
+        
+        # Проверяем, что память не потерялась
+        if ram_after_step and len(ram_after_step) < len(ram_before_step):
+            print(f"WARNING step endpoint: Память уменьшилась! Было {len(ram_before_step)}, стало {len(ram_after_step)}")
+            # Восстанавливаем память из резервной копии
+            emulator.processor.memory.ram = list(ram_before_step)
+            print(f"DEBUG step endpoint: Память восстановлена из резервной копии")
+            ram_after_step = list(emulator.processor.memory.ram)
             
-            # Проверяем, что память не потерялась
-            if len(ram_after_step) < len(ram_before_step):
-                print(f"WARNING step endpoint: Память уменьшилась! Было {len(ram_before_step)}, стало {len(ram_after_step)}")
-                # Восстанавливаем память из резервной копии
-                emulator.processor.memory.ram = list(ram_before_step)
-                print(f"DEBUG step endpoint: Память восстановлена из резервной копии")
-                ram_after_step = list(emulator.processor.memory.ram)
-            
-            # Проверяем все элементы массива для задачи 1 или для кода с ручной инициализацией
-            # Проверяем адреса 0x0100-0x0107, которые используются для инициализации массива
-            print(f"DEBUG step endpoint: Проверка памяти после шага (адреса 0x0100-0x0107):")
-            for addr in [0x0100, 0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107]:
-                if addr < len(ram_after_step):
-                    val = ram_after_step[addr]
-                    before_val = ram_before_step[addr] if ram_before_step and addr < len(ram_before_step) else 'N/A'
-                    if val != before_val:
-                        print(f"  memory.ram[0x{addr:04X}] = {val} (0x{val:04X}) [ИЗМЕНЕНО, было {before_val}]")
+            # Проверяем память в зависимости от текущей задачи
+            if current_task == 1:
+                # Проверяем адреса 0x0100-0x0107 для задачи 1
+                print(f"DEBUG step endpoint: Проверка памяти после шага (задача 1, адреса 0x0100-0x0107):")
+                for addr in [0x0100, 0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107]:
+                    if addr < len(ram_after_step):
+                        val = ram_after_step[addr]
+                        before_val = ram_before_step[addr] if ram_before_step and addr < len(ram_before_step) else 'N/A'
+                        if val != before_val:
+                            print(f"  memory.ram[0x{addr:04X}] = {val} (0x{val:04X}) [ИЗМЕНЕНО, было {before_val}]")
+                        else:
+                            print(f"  memory.ram[0x{addr:04X}] = {val} (0x{val:04X})")
                     else:
-                        print(f"  memory.ram[0x{addr:04X}] = {val} (0x{val:04X})")
-                else:
-                    print(f"  memory.ram[0x{addr:04X}] = OUT_OF_BOUNDS")
+                        print(f"  memory.ram[0x{addr:04X}] = OUT_OF_BOUNDS")
+            elif current_task == 2:
+                # Проверяем адреса 0x0200-0x020A и 0x0300-0x030A для задачи 2
+                print(f"DEBUG step endpoint: Проверка памяти после шага (задача 2, адреса 0x0200-0x020A и 0x0300-0x030A):")
+                print(f"  Массив A (0x0200-0x020A):")
+                for addr in [0x0200] + list(range(0x0201, 0x020B)):
+                    if addr < len(ram_after_step):
+                        val = ram_after_step[addr]
+                        before_val = ram_before_step[addr] if ram_before_step and addr < len(ram_before_step) else 'N/A'
+                        if val != before_val:
+                            print(f"    memory.ram[0x{addr:04X}] = {val} (0x{val:04X}) [ИЗМЕНЕНО, было {before_val}]")
+                        else:
+                            print(f"    memory.ram[0x{addr:04X}] = {val} (0x{val:04X})")
+                    else:
+                        print(f"    memory.ram[0x{addr:04X}] = OUT_OF_BOUNDS")
+                print(f"  Массив B (0x0300-0x030A):")
+                for addr in [0x0300] + list(range(0x0301, 0x030B)):
+                    if addr < len(ram_after_step):
+                        val = ram_after_step[addr]
+                        before_val = ram_before_step[addr] if ram_before_step and addr < len(ram_before_step) else 'N/A'
+                        if val != before_val:
+                            print(f"    memory.ram[0x{addr:04X}] = {val} (0x{val:04X}) [ИЗМЕНЕНО, было {before_val}]")
+                        else:
+                            print(f"    memory.ram[0x{addr:04X}] = {val} (0x{val:04X})")
+                    else:
+                        print(f"    memory.ram[0x{addr:04X}] = OUT_OF_BOUNDS")
+            else:
+                # Проверяем адреса 0x0100-0x0107 по умолчанию
+                print(f"DEBUG step endpoint: Проверка памяти после шага (адреса 0x0100-0x0107):")
+                for addr in [0x0100, 0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107]:
+                    if addr < len(ram_after_step):
+                        val = ram_after_step[addr]
+                        before_val = ram_before_step[addr] if ram_before_step and addr < len(ram_before_step) else 'N/A'
+                        if val != before_val:
+                            print(f"  memory.ram[0x{addr:04X}] = {val} (0x{val:04X}) [ИЗМЕНЕНО, было {before_val}]")
+                        else:
+                            print(f"  memory.ram[0x{addr:04X}] = {val} (0x{val:04X})")
+                    else:
+                        print(f"  memory.ram[0x{addr:04X}] = OUT_OF_BOUNDS")
         
         # Проверяем состояние памяти в результате
         if result.get("state") and result["state"].get("memory"):
             state_mem = result["state"]["memory"]
-            if state_mem.get("ram") and 0x0100 < len(state_mem["ram"]):
+            if current_task == 2:
+                # Для задачи 2 проверяем адреса 0x0200 и 0x0300
+                if state_mem.get("ram") and 0x0200 < len(state_mem["ram"]) and 0x0300 < len(state_mem["ram"]):
+                    state_val_a = state_mem["ram"][0x0200]
+                    state_val_b = state_mem["ram"][0x0300]
+                    print(f"DEBUG step endpoint: Память в состоянии результата (задача 2), ram[0x0200]={state_val_a} (0x{state_val_a:04X}), ram[0x0300]={state_val_b} (0x{state_val_b:04X})")
+            elif state_mem.get("ram") and 0x0100 < len(state_mem["ram"]):
                 state_val = state_mem["ram"][0x0100]
                 print(f"DEBUG step endpoint: Память в состоянии результата, ram[0x0100]={state_val} (0x{state_val:04X})")
         

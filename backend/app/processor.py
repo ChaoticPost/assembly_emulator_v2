@@ -804,9 +804,11 @@ class RISCProcessor:
                 'programCounter': int(pc_before),
                 'programCounter_before': int(pc_before)
             }
+            # Форматируем регистры для вывода
+            regs_str = ", ".join([f"R{i}=0x{r:04X}({r})" for i, r in enumerate(registers_before_final)])
             print(f"═══════════════════════════════════════════════════════════════")
             print(f"🔵 ФАЗА FETCH | PC=0x{pc_before:04X} | Команда: {self._current_instruction_line}")
-            print(f"   Регистры: {registers_before_final}")
+            print(f"   Регистры: [{regs_str}]")
             print(f"═══════════════════════════════════════════════════════════════")
             self.memory.history.append(history_entry)
             return True
@@ -877,9 +879,11 @@ class RISCProcessor:
                 'programCounter': int(pc_before),
                 'programCounter_before': int(pc_before)
             }
+            # Форматируем регистры для вывода
+            regs_str = ", ".join([f"R{i}=0x{r:04X}({r})" for i, r in enumerate(registers_before_final)])
             print(f"═══════════════════════════════════════════════════════════════")
             print(f"🟡 ФАЗА DECODE | PC=0x{pc_before:04X} | Инструкция: {self._current_instruction} | Операнды: {self._current_operands}")
-            print(f"   Регистры: {registers_before_final}")
+            print(f"   Регистры: [{regs_str}]")
             print(f"═══════════════════════════════════════════════════════════════")
             self.memory.history.append(history_entry)
             return True
@@ -902,9 +906,11 @@ class RISCProcessor:
             pc_before = self.processor.program_counter
             ram_before_state = list(self.memory.ram) if self.memory.ram else []  # Сохраняем RAM ДО выполнения
             
+            # Форматируем регистры ДО выполнения
+            regs_before_str = ", ".join([f"R{i}=0x{r:04X}({r})" for i, r in enumerate(registers_before)])
             print(f"═══════════════════════════════════════════════════════════════")
             print(f"🟢 ФАЗА EXECUTE | PC=0x{pc_before:04X} | Инструкция: {instruction} | Операнды: {operands}")
-            print(f"   Регистры ДО: {registers_before}")
+            print(f"   Регистры ДО: [{regs_before_str}]")
             
             # Выполняем инструкцию
             try:
@@ -921,6 +927,9 @@ class RISCProcessor:
                 pc_after = self.processor.program_counter
                 ram_after_state = list(self.memory.ram) if self.memory.ram else []  # Сохраняем RAM ПОСЛЕ выполнения
                 
+                # Форматируем регистры ПОСЛЕ выполнения
+                regs_after_str = ", ".join([f"R{i}=0x{r:04X}({r})" for i, r in enumerate(registers_after)])
+                
                 # Проверяем, изменились ли регистры
                 registers_changed = registers_before != registers_after
                 if registers_changed:
@@ -928,10 +937,10 @@ class RISCProcessor:
                     for i in range(8):
                         if registers_before[i] != registers_after[i]:
                             changed_regs.append(f"R{i}: 0x{registers_before[i]:04X} → 0x{registers_after[i]:04X}")
-                    print(f"   Регистры ПОСЛЕ: {registers_after}")
+                    print(f"   Регистры ПОСЛЕ: [{regs_after_str}]")
                     print(f"   ⚠️ ИЗМЕНЕНЫ: {', '.join(changed_regs)}")
                 else:
-                    print(f"   Регистры ПОСЛЕ: {registers_after} (не изменились)")
+                    print(f"   Регистры ПОСЛЕ: [{regs_after_str}] (не изменились)")
                 print(f"   PC: 0x{pc_before:04X} → 0x{pc_after:04X}")
                 print(f"═══════════════════════════════════════════════════════════════")
                 

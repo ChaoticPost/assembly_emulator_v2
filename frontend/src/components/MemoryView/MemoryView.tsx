@@ -322,8 +322,10 @@ export const MemoryView: React.FC = () => {
                     const unsigned = value >>> 0;
                     // Показываем только непустые ячейки (значение != 0)
                     if (unsigned !== 0) {
-                    ramHexValues.push(`0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
-                    ramDecValues.push(unsigned.toString());
+                        // Показываем адрес и значение в hex формате: [0x0100]=0x0007
+                        ramHexValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
+                        // Показываем адрес и значение в dec формате: [0x0100]=7
+                        ramDecValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=${unsigned}`);
                     }
 
                     // Логируем для первых нескольких адресов

@@ -49,6 +49,126 @@ class RISCEmulator:
             return True
             return False
     
+    def _encode_instruction_to_machine_code(self, instruction_line: str, labels: Dict[str, int] = None) -> int:
+        """Кодирование инструкции в машинный код для записи в RAM"""
+        from .models import AddressingMode
+        
+        # Парсим строку команды
+        parts = instruction_line.replace(',', ' ').split()
+        if not parts:
+            return 0
+        
+        instruction = parts[0].upper().strip()
+        operands = [p.strip() for p in parts[1:] if p.strip()] if len(parts) > 1 else []
+        
+        if instruction not in self.processor.instructions:
+            return 0
+        
+        opcode = self.processor.instructions[instruction]
+        labels = labels or {}
+        
+        # Парсим операнды в зависимости от типа команды
+        rd = 0
+        rs1 = 0
+        rs2 = 0
+        immediate = 0
+        addressing_mode = AddressingMode.REGISTER
+        
+        # Команды без операндов
+        if instruction in ["HALT", "NOP"]:
+            return self.processor._encode_instruction(opcode, 0, 0, 0, 0, AddressingMode.REGISTER)
+        
+        # Команды переходов (JMP, JZ, и т.д.) - один операнд (адрес/метка)
+        if instruction.startswith("J"):
+            if len(operands) >= 1:
+                addr_val, addr_mode = self.processor._parse_operand(operands[0])
+                if addr_mode == AddressingMode.IMMEDIATE:
+                    # Проверяем, является ли это меткой
+                    if isinstance(addr_val, str) and addr_val in labels:
+                        immediate = labels[addr_val]
+                    else:
+                        immediate = addr_val if isinstance(addr_val, int) else 0
+                    addressing_mode = AddressingMode.IMMEDIATE
+            return self.processor._encode_instruction(opcode, 0, 0, 0, immediate, addressing_mode)
+        
+        # Команды с одним операндом (NOT)
+        if instruction == "NOT":
+            if len(operands) >= 2:
+                rd_val, _ = self.processor._parse_operand(operands[0])
+                rs1_val, _ = self.processor._parse_operand(operands[1])
+                if isinstance(rd_val, int):
+                    rd = rd_val
+                if isinstance(rs1_val, int):
+                    rs1 = rs1_val
+            return self.processor._encode_instruction(opcode, rd, rs1, 0, 0, AddressingMode.REGISTER)
+        
+        # Команды с двумя операндами (MOV, LDI, LDR, STR, CMP)
+        if len(operands) >= 1:
+            rd_val, rd_mode = self.processor._parse_operand(operands[0])
+            if rd_mode == AddressingMode.REGISTER and isinstance(rd_val, int):
+                rd = rd_val
+        
+        if len(operands) >= 2:
+            rs1_val, rs1_mode = self.processor._parse_operand(operands[1])
+            if rs1_mode == AddressingMode.REGISTER and isinstance(rs1_val, int):
+                rs1 = rs1_val
+            elif rs1_mode == AddressingMode.IMMEDIATE:
+                # Проверяем, является ли это меткой
+                if isinstance(rs1_val, str) and rs1_val in labels:
+                    immediate = labels[rs1_val]
+                elif isinstance(rs1_val, int):
+                    immediate = rs1_val
+                addressing_mode = AddressingMode.IMMEDIATE
+            elif rs1_mode == AddressingMode.DIRECT and isinstance(rs1_val, int):
+                immediate = rs1_val
+                addressing_mode = AddressingMode.DIRECT
+            elif rs1_mode == AddressingMode.INDIRECT_REGISTER and isinstance(rs1_val, int):
+                rs1 = rs1_val
+                addressing_mode = AddressingMode.INDIRECT_REGISTER
+        
+        # Команды с тремя операндами (ADD, SUB, MUL, и т.д.)
+        if len(operands) >= 3:
+            rs2_val, rs2_mode = self.processor._parse_operand(operands[2])
+            if rs2_mode == AddressingMode.REGISTER and isinstance(rs2_val, int):
+                rs2 = rs2_val
+            elif rs2_mode == AddressingMode.IMMEDIATE:
+                if isinstance(rs2_val, str) and rs2_val in labels:
+                    immediate = labels[rs2_val]
+                elif isinstance(rs2_val, int):
+                    immediate = rs2_val
+                addressing_mode = AddressingMode.IMMEDIATE
+        
+        # Кодируем команду
+        return self.processor._encode_instruction(opcode, rd, rs1, rs2, immediate, addressing_mode)
+    
+    def _write_program_to_ram(self, start_address: int = 0x0000):
+        """Запись программы в RAM начиная с указанного адреса"""
+        if not self.processor.compiled_code:
+            return
+        
+        # Получаем метки из ассемблера
+        compile_result = self.compile_code(self.processor.source_code)
+        labels = compile_result.get("labels", {}) if compile_result.get("success") else {}
+        
+        # Убеждаемся, что RAM достаточно большая
+        required_size = start_address + len(self.processor.compiled_code) + 1
+        if not self.processor.memory.ram or len(self.processor.memory.ram) < required_size:
+            new_ram = list(self.processor.memory.ram) if self.processor.memory.ram else [0] * required_size
+            while len(new_ram) < required_size:
+                new_ram.append(0)
+            self.processor.memory.ram = new_ram
+        
+        # Записываем команды в RAM
+        new_ram = list(self.processor.memory.ram)
+        for i, instruction_line in enumerate(self.processor.compiled_code):
+            addr = start_address + i
+            machine_code = self._encode_instruction_to_machine_code(instruction_line, labels)
+            new_ram[addr] = machine_code & 0xFFFF
+            print(f"DEBUG _write_program_to_ram: Записана команда '{instruction_line}' -> 0x{machine_code:04X} по адресу 0x{addr:04X}")
+        
+        self.processor.memory.ram = new_ram
+        print(f"DEBUG _write_program_to_ram: Записано {len(self.processor.compiled_code)} команд в RAM начиная с адреса 0x{start_address:04X}")
+    
     def load_task(self, task_id: int) -> Dict[str, Any]:
         """Загрузка задачи"""
         task = self.task_manager.get_task(task_id)
@@ -101,10 +221,16 @@ class RISCEmulator:
             # Загружаем программу задачи (это НЕ сбрасывает память, только регистры и историю)
             self.load_program(task["program"])
             
+            # Для задачи 2: записываем команды в RAM начиная с адреса 0x0000 (архитектура фон Неймана)
+            if task_id == 2:
+                self._write_program_to_ram(start_address=0x0000)
+            
             # Восстанавливаем память после load_program (на всякий случай)
-            if ram_before_load_program and len(ram_before_load_program) > 0:
-                self.processor.memory.ram = ram_before_load_program
-                print(f"DEBUG load_task: Память восстановлена после load_program, length={len(self.processor.memory.ram)}")
+            # НО для задачи 2 не восстанавливаем, так как мы только что записали команды
+            if task_id != 2:
+                if ram_before_load_program and len(ram_before_load_program) > 0:
+                    self.processor.memory.ram = ram_before_load_program
+                    print(f"DEBUG load_task: Память восстановлена после load_program, length={len(self.processor.memory.ram)}")
             
             # Настраиваем данные задачи (ВАЖНО: после load_program, чтобы память не сбросилась)
             # Для задач 1 и 2 НЕ записываем данные в память при загрузке - они будут записаны при первом execute_step

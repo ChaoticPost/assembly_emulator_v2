@@ -341,7 +341,31 @@ export const MemoryView: React.FC = () => {
                 ramHexValues.push(`R0:0x${accUnsigned.toString(16).toUpperCase().padStart(4, '0')}`);
                 ramDecValues.push(`R0:${accUnsigned}`);
             } else if (current_task === 2) {
-                // Для задачи 2 показываем только непустые ячейки массивов A и B с адресами
+                // Для задачи 2 показываем команды из RAM (архитектура фон Неймана) и данные массивов A и B
+                // Команды: 0x0000-0x00FF (показываем только непустые)
+                // Определяем количество команд из machine_code или истории
+                const maxProgramSize = state.machine_code?.length || 50; // Максимум 50 команд для отображения
+                for (let addr = 0x0000; addr < 0x0000 + maxProgramSize && addr < 0x0100; addr++) {
+                    let value = 0;
+                    if (ramForStep && Array.isArray(ramForStep) && ramForStep.length > addr) {
+                        const rawValue = ramForStep[addr];
+                        if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
+                            const numValue = typeof rawValue === 'string' ? parseInt(rawValue, 10) : Number(rawValue);
+                            if (!isNaN(numValue)) {
+                                value = numValue & 0xFFFF;
+                            }
+                        }
+                    }
+                    const unsigned = value >>> 0;
+                    // Показываем только непустые ячейки команд (значение != 0)
+                    if (unsigned !== 0) {
+                        // Показываем адрес и значение команды в hex формате: [0x0000]=0x1100
+                        ramHexValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
+                        // Показываем адрес и значение команды в dec формате: [0x0000]=4352
+                        ramDecValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=${unsigned}`);
+                    }
+                }
+                
                 // Массив A: 0x0200-0x020A
                 for (let addr = 0x0200; addr <= 0x020A; addr++) {
                     let value = 0;

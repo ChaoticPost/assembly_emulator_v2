@@ -16,11 +16,13 @@ class RISCEmulator:
         self.assembler = RISCAssembler()
         self.task_manager = TaskManager()
         self.current_task = None
+        self._task_data_write_index = 0  # Счетчик для постепенной записи данных задач
 
     def reset(self):
         """Сброс эмулятора в начальное состояние"""
         self.processor.reset()
         self.current_task = None
+        self._task_data_write_index = 0
     
     def compile_code(self, source_code: str) -> Dict[str, Any]:
         """Компиляция исходного кода"""
@@ -180,6 +182,7 @@ class RISCEmulator:
                     print(f"DEBUG load_task: Память очищена для задачи 2, данные будут записаны при первом execute_step")
             
             self.current_task = task_id
+            self._task_data_write_index = 0  # Сбрасываем счетчик при загрузке задачи
             
             return {
                 "success": True,
@@ -221,91 +224,110 @@ class RISCEmulator:
                     "message": "Step executed successfully"
                 }
             
-            # Для задач 1 и 2: записываем данные в память ПОСЛЕ выполнения команды (первый execute)
+            # Удобная функция для обновления последней записи истории RAM,
+            # чтобы frontend видел актуальное состояние для hex/dex сразу после записи
+            def _update_history_ram(new_ram_snapshot: list):
+                if self.processor.memory.history:
+                    entry = self.processor.memory.history[-1]
+                    if isinstance(entry, dict):
+                        entry["ram_after"] = list(new_ram_snapshot)
+                        entry["ram"] = list(new_ram_snapshot)
+                        self.processor.memory.history[-1] = entry
+            
+            # Для задач 1 и 2: записываем данные в память постепенно, по одному элементу за execute
             if self.current_task == 1:
-                # Проверяем, записаны ли данные (если ram[0x0100] == 0, значит данные еще не записаны)
-                if (not self.processor.memory.ram or 
-                    len(self.processor.memory.ram) <= 0x0100 or 
-                    self.processor.memory.ram[0x0100] == 0):
-                    # Получаем данные задачи
-                    task = self.task_manager.get_task(1)
-                    if task:
-                        test_data = task["test_data"]
-                        if test_data and len(test_data) >= 2:
-                            size = test_data[0]
-                            elements = test_data[1:1 + size]
-                            expected_data = [size] + elements  # [размер, элемент1, элемент2, ...]
-                            
-                            # Вычисляем требуемый размер памяти
-                            required_size = 0x0100 + len(expected_data) + 1
-                            if not self.processor.memory.ram or len(self.processor.memory.ram) < required_size:
-                                new_ram = list(self.processor.memory.ram) if self.processor.memory.ram else [0] * required_size
-                                while len(new_ram) < required_size:
-                                    new_ram.append(0)
-                                self.processor.memory.ram = new_ram
-                            
-                            # Записываем данные в память ПОСЛЕ выполнения команды
-                            new_ram = list(self.processor.memory.ram)
-                            for i, expected_val in enumerate(expected_data):
-                                addr = 0x0100 + i
-                                if addr < len(new_ram):
-                                    new_ram[addr] = int(expected_val) & 0xFFFF
-                                    print(f"DEBUG execute_step: Записано значение {expected_val} (0x{expected_val:04X}) по адресу 0x{addr:04X}")
+                # Получаем данные задачи
+                task = self.task_manager.get_task(1)
+                if task:
+                    test_data = task["test_data"]
+                    if test_data and len(test_data) >= 2:
+                        size = test_data[0]
+                        elements = test_data[1:1 + size]
+                        expected_data = [size] + elements  # [размер, элемент1, элемент2, ...]
+                        
+                        # Вычисляем требуемый размер памяти
+                        required_size = 0x0100 + len(expected_data) + 1
+                        if not self.processor.memory.ram or len(self.processor.memory.ram) < required_size:
+                            new_ram = list(self.processor.memory.ram) if self.processor.memory.ram else [0] * required_size
+                            while len(new_ram) < required_size:
+                                new_ram.append(0)
                             self.processor.memory.ram = new_ram
-                            print(f"DEBUG execute_step: Данные задачи 1 записаны в память ПОСЛЕ выполнения команды")
+                        
+                        # Записываем данные постепенно: индекс показывает, сколько элементов уже записано
+                        if self._task_data_write_index < len(expected_data):
+                            new_ram = list(self.processor.memory.ram)
+                            addr = 0x0100 + self._task_data_write_index
+                            if addr < len(new_ram):
+                                new_ram[addr] = int(expected_data[self._task_data_write_index]) & 0xFFFF
+                                print(f"DEBUG execute_step: Записано значение {expected_data[self._task_data_write_index]} (0x{expected_data[self._task_data_write_index]:04X}) по адресу 0x{addr:04X} (элемент {self._task_data_write_index + 1}/{len(expected_data)})")
+                                self.processor.memory.ram = new_ram
+                                _update_history_ram(new_ram)
+                                self._task_data_write_index += 1
+                                print(f"DEBUG execute_step: Данные задачи 1: записан элемент {self._task_data_write_index}/{len(expected_data)}")
             
             elif self.current_task == 2:
-                # Проверяем, записаны ли данные (если ram[0x0200] == 0 или ram[0x0300] == 0, значит данные еще не записаны)
-                if (not self.processor.memory.ram or 
-                    len(self.processor.memory.ram) <= 0x0300 or 
-                    self.processor.memory.ram[0x0200] == 0 or 
-                    self.processor.memory.ram[0x0300] == 0):
-                    # Получаем данные задачи
-                    task = self.task_manager.get_task(2)
-                    if task:
-                        test_data = task["test_data"]
-                        if test_data and len(test_data) >= 2:
-                            # Формат: [size_a, a1..aN, size_b, b1..bM]
-                            size_a = test_data[0]
-                            a_vals = test_data[1:1 + size_a]
-                            size_b = test_data[1 + size_a]
-                            b_vals = test_data[2 + size_a:2 + size_a + size_b]
-                            
-                            # Вычисляем требуемый размер памяти
-                            required_size = max(0x020A, 0x030A) + 2
-                            if not self.processor.memory.ram or len(self.processor.memory.ram) < required_size:
-                                new_ram = list(self.processor.memory.ram) if self.processor.memory.ram else [0] * required_size
-                                while len(new_ram) < required_size:
-                                    new_ram.append(0)
-                                self.processor.memory.ram = new_ram
-                            
-                            # Записываем данные в память ПОСЛЕ выполнения команды
+                # Получаем данные задачи
+                task = self.task_manager.get_task(2)
+                if task:
+                    test_data = task["test_data"]
+                    if test_data and len(test_data) >= 2:
+                        # Формат: [size_a, a1..aN, size_b, b1..bM]
+                        size_a = test_data[0]
+                        a_vals = test_data[1:1 + size_a]
+                        size_b = test_data[1 + size_a]
+                        b_vals = test_data[2 + size_a:2 + size_a + size_b]
+                        
+                        # Формируем последовательность данных для постепенной записи:
+                        # [size_a, a1, a2, ..., aN, size_b, b1, b2, ..., bM]
+                        task_data_sequence = [size_a] + a_vals + [size_b] + b_vals
+                        total_elements = len(task_data_sequence)
+                        
+                        # Вычисляем требуемый размер памяти
+                        required_size = max(0x020A, 0x030A) + 2
+                        if not self.processor.memory.ram or len(self.processor.memory.ram) < required_size:
+                            new_ram = list(self.processor.memory.ram) if self.processor.memory.ram else [0] * required_size
+                            while len(new_ram) < required_size:
+                                new_ram.append(0)
+                            self.processor.memory.ram = new_ram
+                        
+                        # Записываем данные постепенно: один элемент за execute
+                        if self._task_data_write_index < total_elements:
                             new_ram = list(self.processor.memory.ram)
                             
-                            # Записываем размер массива A
-                            new_ram[0x0200] = int(size_a) & 0xFFFF
-                            print(f"DEBUG execute_step: Записано значение {size_a} (0x{size_a:04X}) по адресу 0x0200")
+                            # Определяем адрес для записи
+                            if self._task_data_write_index == 0:
+                                # Первый элемент - размер массива A (0x0200)
+                                addr = 0x0200
+                            elif self._task_data_write_index <= size_a:
+                                # Элементы массива A (0x0201 - 0x0200+size_a)
+                                addr = 0x0200 + self._task_data_write_index
+                            elif self._task_data_write_index == size_a + 1:
+                                # Размер массива B (0x0300)
+                                addr = 0x0300
+                            else:
+                                # Элементы массива B (0x0301 - 0x0300+size_b)
+                                offset = self._task_data_write_index - (size_a + 2)  # -2 потому что size_a и size_b уже учтены
+                                addr = 0x0300 + offset + 1
                             
-                            # Записываем элементы массива A
-                            for i, expected_val in enumerate(a_vals):
-                                addr = 0x0200 + i + 1
-                                if addr < len(new_ram):
-                                    new_ram[addr] = int(expected_val) & 0xFFFF
-                                    print(f"DEBUG execute_step: Записано значение {expected_val} (0x{expected_val:04X}) по адресу 0x{addr:04X} (A[{i}])")
-                            
-                            # Записываем размер массива B
-                            new_ram[0x0300] = int(size_b) & 0xFFFF
-                            print(f"DEBUG execute_step: Записано значение {size_b} (0x{size_b:04X}) по адресу 0x0300")
-                            
-                            # Записываем элементы массива B
-                            for i, expected_val in enumerate(b_vals):
-                                addr = 0x0300 + i + 1
-                                if addr < len(new_ram):
-                                    new_ram[addr] = int(expected_val) & 0xFFFF
-                                    print(f"DEBUG execute_step: Записано значение {expected_val} (0x{expected_val:04X}) по адресу 0x{addr:04X} (B[{i}])")
-                            
-                            self.processor.memory.ram = new_ram
-                            print(f"DEBUG execute_step: Данные задачи 2 записаны в память ПОСЛЕ выполнения команды")
+                            if addr < len(new_ram):
+                                value = task_data_sequence[self._task_data_write_index]
+                                new_ram[addr] = int(value) & 0xFFFF
+                                
+                                # Определяем тип элемента для лога
+                                if self._task_data_write_index == 0:
+                                    elem_type = "размер массива A"
+                                elif self._task_data_write_index <= size_a:
+                                    elem_type = f"A[{self._task_data_write_index - 1}]"
+                                elif self._task_data_write_index == size_a + 1:
+                                    elem_type = "размер массива B"
+                                else:
+                                    elem_type = f"B[{self._task_data_write_index - size_a - 2}]"
+                                
+                                print(f"DEBUG execute_step: Записано значение {value} (0x{value:04X}) по адресу 0x{addr:04X} ({elem_type}, элемент {self._task_data_write_index + 1}/{total_elements})")
+                                self.processor.memory.ram = new_ram
+                                _update_history_ram(new_ram)
+                                self._task_data_write_index += 1
+                                print(f"DEBUG execute_step: Данные задачи 2: записан элемент {self._task_data_write_index}/{total_elements}")
             
             return {
                 "success": True,

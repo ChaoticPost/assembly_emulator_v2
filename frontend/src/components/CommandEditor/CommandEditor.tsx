@@ -8,7 +8,7 @@ import './CommandEditor.css';
 export const CommandEditor: React.FC = () => {
   const { state, setSourceCode, compileCode, loading, error, current_task, setCurrentTask } = useEmulatorStore();
   const [assemblyCode, setAssemblyCode] = useState(state.source_code);
-  const [activeTab, setActiveTab] = useState<'editor' | 'examples' | 'help'>('editor');
+  const [activeTab, setActiveTab] = useState<'editor' | 'examples'>('editor');
   const [exampleCode, setExampleCode] = useState<string>('');
   const [loadingExample, setLoadingExample] = useState(false);
   const [compileSuccess, setCompileSuccess] = useState(false);
@@ -131,41 +131,127 @@ export const CommandEditor: React.FC = () => {
 
   const handleLoadTaskExample = (taskId: number) => {
     const examples = {
-      1: `; Программа для вычисления суммы элементов массива
+      1: `; Поиск максимума в массиве
 ; Формат массива: [размер, элемент1, элемент2, ..., элементN]
 ; Массив: [7, 10, 20, 30, 40, 50, 60, 70] (размер=7, элементы: 10-70)
-; Ожидаемый результат: 280
+; Ожидаемый результат: 70 (максимальный элемент)
+; Примечание: массив должен быть предварительно загружен в память начиная с адреса 0x0300
 
-; Инициализация
-LDI R0, 0          ; R0 = 0 (аккумулятор для суммы)
-LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x0100] - размер)
-LDI R2, 0x0100     ; R2 = базовый адрес массива
+; Подготовка констант
+LDI 1              ; ACC = 1
+STA 0x0400         ; константа 1 в 0x0400
 
-; Загрузка размера массива
-LDR R3, [0x0100]   ; R3 = размер массива (из [0x0100])
+; Загрузить размер массива N из памяти[0x0300]
+LDA 0x0300         ; ACC = размер массива
+STA 0x0410         ; сохранить размер во временную переменную
+
+; Загрузить первый элемент в ACC как начальный максимум
+LDA 0x0301         ; ACC = первый элемент (начальный максимум)
+STA 0x0411         ; сохранить максимум
+
+; Инициализировать индекс i = 2
+LDI 2              ; ACC = 2
+STA 0x0412         ; сохранить индекс
+
+; Константы для сравнения индексов
+LDI 2
+STA 0x0420
+LDI 3
+STA 0x0421
+LDI 4
+STA 0x0422
+LDI 5
+STA 0x0423
+LDI 6
+STA 0x0424
+LDI 7
+STA 0x0425
+LDI 8
+STA 0x0426
 
 ; Основной цикл
 LOOP_START:
-; Сравниваем индекс с (размер + 1)
-; Если индекс == размер + 1, значит обработали все элементы, выходим
-ADD R4, R3, 1      ; R4 = размер + 1
-CMP R1, R4         ; Сравнить индекс с (размер + 1)
-JZ LOOP_END        ; Если индекс == размер + 1, выйти из цикла
+; Проверка условия выхода: индекс > размер
+LDA 0x0410         ; ACC = размер
+ADD 0x0400         ; ACC = размер + 1
+STA 0x0430         ; сохранить (размер + 1)
+LDA 0x0412         ; ACC = индекс
+CMP 0x0430         ; сравнить индекс с (размер + 1)
+JZ LOOP_END        ; если равны, выйти
 
-; Вычисляем адрес текущего элемента: базовый_адрес + индекс
-ADD R5, R2, R1     ; R5 = 0x0100 + индекс (адрес элемента)
-LDRR R6, [R5]      ; R6 = [R5] (значение элемента массива)
+; Таблица переходов на основе индекса
+LDA 0x0412
+CMP 0x0420
+JZ LOAD_ELEM_2
+LDA 0x0412
+CMP 0x0421
+JZ LOAD_ELEM_3
+LDA 0x0412
+CMP 0x0422
+JZ LOAD_ELEM_4
+LDA 0x0412
+CMP 0x0423
+JZ LOAD_ELEM_5
+LDA 0x0412
+CMP 0x0424
+JZ LOAD_ELEM_6
+LDA 0x0412
+CMP 0x0425
+JZ LOAD_ELEM_7
+LDA 0x0412
+CMP 0x0426
+JZ LOAD_ELEM_8
+JMP INCREMENT_INDEX
 
-; Добавляем элемент к сумме
-ADD R0, R0, R6     ; R0 = R0 + R6 (сумма)
+LOAD_ELEM_2:
+LDA 0x0302
+JMP COMPARE_MAX
 
-; Увеличиваем индекс
-ADD R1, R1, 1      ; R1 = R1 + 1
+LOAD_ELEM_3:
+LDA 0x0303
+JMP COMPARE_MAX
 
-JMP LOOP_START     ; Переход к началу цикла
+LOAD_ELEM_4:
+LDA 0x0304
+JMP COMPARE_MAX
+
+LOAD_ELEM_5:
+LDA 0x0305
+JMP COMPARE_MAX
+
+LOAD_ELEM_6:
+LDA 0x0306
+JMP COMPARE_MAX
+
+LOAD_ELEM_7:
+LDA 0x0307
+JMP COMPARE_MAX
+
+LOAD_ELEM_8:
+LDA 0x0308
+JMP COMPARE_MAX
+
+; Сравнить элемент с максимумом
+COMPARE_MAX:
+STA 0x0440         ; сохранить текущий элемент
+LDA 0x0411         ; ACC = максимум
+SUB 0x0440         ; ACC = максимум - элемент
+JN UPDATE_MAX      ; если отрицательный, обновить
+JMP INCREMENT_INDEX
+
+UPDATE_MAX:
+LDA 0x0440         ; ACC = новый максимум
+STA 0x0411         ; сохранить
+
+INCREMENT_INDEX:
+LDA 0x0412         ; ACC = индекс
+ADD 0x0400         ; ACC = индекс + 1
+STA 0x0412         ; сохранить
+
+JMP LOOP_START
 
 LOOP_END:
-; Результат в R0 (аккумулятор)
+LDA 0x0411         ; ACC = максимум
 HALT`,
 
       'template': `; Программа для вычисления суммы элементов массива
@@ -280,65 +366,151 @@ HALT`
 
   const handleLoadTemplate = () => {
     // Загружаем шаблон с ручной инициализацией массива
-    const template = `; Программа для вычисления суммы элементов массива
+    const template = `; Поиск максимума в массиве
 ; Массив: [7, 15, 20, 30, 40, 50, 60, 70] (размер=7, элементы: 15-70)
-; Ожидаемый результат: 285 (15+20+30+40+50+60+70)
+; Ожидаемый результат: 70 (максимальный элемент)
 
-; Инициализация массива
-LDI R7, 7           ; Размер массива = 7
-STR R7, [0x0100]    ; Сохраняем размер по адресу 0x0100
+; Инициализация массива (используем адреса с 0x0300 вместо 0x0100)
+LDI 7              ; ACC = 7 (размер массива)
+STA 0x0300         ; сохранить размер по адресу 0x0300
 
-LDI R7, 15          ; Элемент 1 = 15
-STR R7, [0x0101]    ; Адрес 0x0101
+LDI 15             ; ACC = 15 (элемент 1)
+STA 0x0301         ; адрес 0x0301
 
-LDI R7, 20          ; Элемент 2 = 20
-STR R7, [0x0102]    ; Адрес 0x0102
+LDI 20             ; ACC = 20 (элемент 2)
+STA 0x0302         ; адрес 0x0302
 
-LDI R7, 30          ; Элемент 3 = 30
-STR R7, [0x0103]    ; Адрес 0x0103
+LDI 30             ; ACC = 30 (элемент 3)
+STA 0x0303         ; адрес 0x0303
 
-LDI R7, 40          ; Элемент 4 = 40
-STR R7, [0x0104]    ; Адрес 0x0104
+LDI 40             ; ACC = 40 (элемент 4)
+STA 0x0304         ; адрес 0x0304
 
-LDI R7, 50          ; Элемент 5 = 50
-STR R7, [0x0105]    ; Адрес 0x0105
+LDI 50             ; ACC = 50 (элемент 5)
+STA 0x0305         ; адрес 0x0305
 
-LDI R7, 60          ; Элемент 6 = 60
-STR R7, [0x0106]    ; Адрес 0x0106
+LDI 60             ; ACC = 60 (элемент 6)
+STA 0x0306         ; адрес 0x0306
 
-LDI R7, 70          ; Элемент 7 = 70
-STR R7, [0x0107]    ; Адрес 0x0107
+LDI 70             ; ACC = 70 (элемент 7)
+STA 0x0307         ; адрес 0x0307
 
-; Основная программа вычисления суммы
-LDI R0, 0          ; R0 = 0 (аккумулятор для суммы)
-LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x0100] - размер)
-LDI R2, 0x0100     ; R2 = базовый адрес массива
+; Основная программа поиска максимума
+; Подготовка констант
+LDI 1              ; ACC = 1
+STA 0x0400         ; константа 1 в 0x0400
 
-; Загрузка размера массива
-LDR R3, [0x0100]   ; R3 = размер массива (из [0x0100])
+; Загрузить размер массива N
+LDA 0x0300         ; ACC = размер массива
+STA 0x0410         ; сохранить размер во временную переменную
+
+; Загрузить первый элемент как начальный максимум
+LDA 0x0301         ; ACC = первый элемент
+STA 0x0411         ; сохранить максимум
+
+; Инициализировать индекс i = 2
+LDI 2              ; ACC = 2
+STA 0x0412         ; сохранить индекс
+
+; Константы для сравнения индексов
+LDI 2
+STA 0x0420
+LDI 3
+STA 0x0421
+LDI 4
+STA 0x0422
+LDI 5
+STA 0x0423
+LDI 6
+STA 0x0424
+LDI 7
+STA 0x0425
+LDI 8
+STA 0x0426
 
 ; Основной цикл
 LOOP_START:
-; Сравниваем индекс с (размер + 1)
-; Если индекс == размер + 1, значит обработали все элементы, выходим
-ADD R4, R3, 1      ; R4 = размер + 1
-CMP R1, R4         ; Сравнить индекс с (размер + 1)
-JZ LOOP_END        ; Если индекс == размер + 1, выйти из цикла
+; Проверка условия выхода: индекс > размер
+LDA 0x0410         ; ACC = размер
+ADD 0x0400         ; ACC = размер + 1
+STA 0x0430         ; сохранить (размер + 1)
+LDA 0x0412         ; ACC = индекс
+CMP 0x0430         ; сравнить индекс с (размер + 1)
+JZ LOOP_END        ; если равны, выйти
 
-; Вычисляем адрес текущего элемента: базовый_адрес + индекс
-ADD R5, R2, R1     ; R5 = 0x0100 + индекс (адрес элемента)
-LDRR R6, [R5]      ; R6 = [R5] (значение элемента массива)
+; Таблица переходов на основе индекса
+LDA 0x0412
+CMP 0x0420
+JZ LOAD_ELEM_2
+LDA 0x0412
+CMP 0x0421
+JZ LOAD_ELEM_3
+LDA 0x0412
+CMP 0x0422
+JZ LOAD_ELEM_4
+LDA 0x0412
+CMP 0x0423
+JZ LOAD_ELEM_5
+LDA 0x0412
+CMP 0x0424
+JZ LOAD_ELEM_6
+LDA 0x0412
+CMP 0x0425
+JZ LOAD_ELEM_7
+LDA 0x0412
+CMP 0x0426
+JZ LOAD_ELEM_8
+JMP INCREMENT_INDEX
 
-; Добавляем элемент к сумме
-ADD R0, R0, R6     ; R0 = R0 + R6 (сумма)
+LOAD_ELEM_2:
+LDA 0x0302
+JMP COMPARE_MAX
 
-; Увеличиваем индекс
-ADD R1, R1, 1      ; R1 = R1 + 1
+LOAD_ELEM_3:
+LDA 0x0303
+JMP COMPARE_MAX
 
-JMP LOOP_START     ; Переход к началу цикла
+LOAD_ELEM_4:
+LDA 0x0304
+JMP COMPARE_MAX
+
+LOAD_ELEM_5:
+LDA 0x0305
+JMP COMPARE_MAX
+
+LOAD_ELEM_6:
+LDA 0x0306
+JMP COMPARE_MAX
+
+LOAD_ELEM_7:
+LDA 0x0307
+JMP COMPARE_MAX
+
+LOAD_ELEM_8:
+LDA 0x0308
+JMP COMPARE_MAX
+
+; Сравнить элемент с максимумом
+COMPARE_MAX:
+STA 0x0440         ; сохранить текущий элемент
+LDA 0x0411         ; ACC = максимум
+SUB 0x0440         ; ACC = максимум - элемент
+JN UPDATE_MAX      ; если отрицательный, обновить
+JMP INCREMENT_INDEX
+
+UPDATE_MAX:
+LDA 0x0440         ; ACC = новый максимум
+STA 0x0411         ; сохранить
+
+INCREMENT_INDEX:
+LDA 0x0412         ; ACC = индекс
+ADD 0x0400         ; ACC = индекс + 1
+STA 0x0412         ; сохранить
+
+JMP LOOP_START
 
 LOOP_END:
-; Результат в R0 (аккумулятор)
+LDA 0x0411         ; ACC = максимум
 HALT`;
     setExampleCode(template);
   };
@@ -468,10 +640,14 @@ HALT`;
 
   // Сбрасываем состояние компиляции при сбросе процессора
   useEffect(() => {
-    if (state.processor.program_counter === 0 && state.processor.registers.every(r => r === 0)) {
+    const isReset = state.processor.program_counter === 0 &&
+      (state.processor.accumulator === 0 ||
+        (state.processor.registers && state.processor.registers.length > 0 &&
+          state.processor.registers.every(r => r === 0)));
+    if (isReset) {
       setCompileSuccess(false);
     }
-  }, [state.processor.program_counter, state.processor.registers]);
+  }, [state.processor.program_counter, state.processor.accumulator, state.processor.registers]);
 
   return (
     <Card className="glass-card p-6">
@@ -500,19 +676,10 @@ HALT`;
             >
               Примеры
             </button>
-            <button
-              className={`border-b-2 py-2 px-1 text-sm font-bold ${activeTab === 'help'
-                ? 'border-green-500 text-green-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              onClick={() => setActiveTab('help')}
-            >
-              Справка
-            </button>
           </nav>
         </div>
 
-        {activeTab === 'editor' ? (
+        {activeTab === 'editor' && (
           <div className="space-y-4">
             <Textarea
               value={assemblyCode}
@@ -572,7 +739,8 @@ HALT`;
               </Button>
             </div>
           </div>
-        ) : activeTab === 'examples' ? (
+        )}
+        {activeTab === 'examples' && (
           <div className="space-y-4">
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
@@ -616,7 +784,7 @@ HALT`;
                   />
                   <label htmlFor="task-1" className="task-selection-label">
                     <div className="task-selection-title">Задача 1</div>
-                    <div className="task-selection-description">Сумма массива</div>
+                    <div className="task-selection-description">Поиск максимума в массиве</div>
                   </label>
                 </div>
 
@@ -740,389 +908,6 @@ HALT`;
                 </div>
               </div>
             )}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-              <h4 className="text-xl font-bold text-green-900 font-heading mb-4">
-                📚 Справочник по ассемблеру RISC
-              </h4>
-              <p className="text-green-800 text-sm mb-4 font-body">
-                Полное руководство по всем поддерживаемым инструкциям двухадресного RISC процессора
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Пересылка данных */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h5 className="text-lg font-semibold text-gray-900 font-heading mb-3 flex items-center">
-                  <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ДАННЫЕ</span>
-                  Пересылка данных
-                </h5>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">LDI rd, imm</code>
-                    <span className="text-gray-600">загрузка константы в регистр</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">MOV rd, rs1</code>
-                    <span className="text-gray-600">копирование регистра</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">LDR rd, [addr]</code>
-                    <span className="text-gray-600">загрузка из памяти (прямая)</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">LDRR rd, [rs1]</code>
-                    <span className="text-gray-600">загрузка из памяти (косвенная)</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1">
-                    <code className="font-mono text-green-600">STR rs1, [addr]</code>
-                    <span className="text-gray-600">сохранение в память</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Арифметические операции */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h5 className="text-lg font-semibold text-gray-900 font-heading mb-3 flex items-center">
-                  <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">МАТЕМАТИКА</span>
-                  Арифметические операции
-                </h5>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">ADD rd, rs1, rs2</code>
-                    <span className="text-gray-600">сложение: rd = rs1 + rs2</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">SUB rd, rs1, rs2</code>
-                    <span className="text-gray-600">вычитание: rd = rs1 - rs2</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">MUL rd, rs1, rs2</code>
-                    <span className="text-gray-600">умножение: rd = rs1 * rs2</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1">
-                    <code className="font-mono text-green-600">DIV rd, rs1, rs2</code>
-                    <span className="text-gray-600">деление: rd = rs1 / rs2</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Логические операции */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h5 className="text-lg font-semibold text-gray-900 font-heading mb-3 flex items-center">
-                  <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">ЛОГИКА</span>
-                  Логические операции
-                </h5>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">AND rd, rs1, rs2</code>
-                    <span className="text-gray-600">логическое И</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">OR rd, rs1, rs2</code>
-                    <span className="text-gray-600">логическое ИЛИ</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">XOR rd, rs1, rs2</code>
-                    <span className="text-gray-600">исключающее ИЛИ</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1">
-                    <code className="font-mono text-green-600">NOT rd, rs1</code>
-                    <span className="text-gray-600">логическое НЕ</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Управление выполнением */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h5 className="text-lg font-semibold text-gray-900 font-heading mb-3 flex items-center">
-                  <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2">УПРАВЛЕНИЕ</span>
-                  Переходы и сравнение
-                </h5>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">CMP rs1, rs2</code>
-                    <span className="text-gray-600">сравнение (устанавливает флаги)</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">JMP label</code>
-                    <span className="text-gray-600">безусловный переход</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">JZ label</code>
-                    <span className="text-gray-600">переход если Z=1</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <code className="font-mono text-green-600">JNZ label</code>
-                    <span className="text-gray-600">переход если Z=0</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1">
-                    <code className="font-mono text-green-600">HALT</code>
-                    <span className="text-gray-600">остановка выполнения</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Режимы адресации */}
-            <div className="bg-green-50 rounded-lg border border-green-200 p-6">
-              <h5 className="text-lg font-semibold text-green-900 font-heading mb-4">
-                🔧 Режимы адресации
-              </h5>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="bg-white rounded-lg p-3">
-                  <strong className="text-green-800">Непосредственная:</strong>
-                  <code className="block mt-1 font-mono text-green-600">LDI R0, 100</code>
-                  <span className="text-gray-600 text-xs">Значение указано напрямую</span>
-                </div>
-                <div className="bg-white rounded-lg p-3">
-                  <strong className="text-green-800">Прямая:</strong>
-                  <code className="block mt-1 font-mono text-green-600">LDR R0, [0x1000]</code>
-                  <span className="text-gray-600 text-xs">Адрес указан напрямую</span>
-                </div>
-                <div className="bg-white rounded-lg p-3">
-                  <strong className="text-green-800">Регистровая:</strong>
-                  <code className="block mt-1 font-mono text-green-600">ADD R0, R1, R2</code>
-                  <span className="text-gray-600 text-xs">Операнд в регистре</span>
-                </div>
-                <div className="bg-white rounded-lg p-3">
-                  <strong className="text-green-800">Косвенно-регистровая:</strong>
-                  <code className="block mt-1 font-mono text-green-600">LDRR R0, [R1]</code>
-                  <span className="text-gray-600 text-xs">Адрес в регистре</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Примеры использования */}
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
-              <h5 className="text-lg font-semibold text-gray-900 font-heading mb-4">
-                💡 Примеры использования
-              </h5>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h6 className="font-medium text-gray-800 mb-2">Простое сложение:</h6>
-                  <pre className="bg-gray-800 text-green-400 p-3 rounded text-xs font-mono overflow-x-auto">
-                    {`LDI R0, 5
-LDI R1, 3
-ADD R0, R0, R1
-HALT`}
-                  </pre>
-                  <p className="text-xs text-gray-600 mt-1">Результат: R0 = 0x0008 (8)</p>
-                </div>
-                <div>
-                  <h6 className="font-medium text-gray-800 mb-2">Условный переход:</h6>
-                  <pre className="bg-gray-800 text-green-400 p-3 rounded text-xs font-mono overflow-x-auto">
-                    {`LDI R0, 0
-CMP R0, 0
-JZ end
-LDI R1, 1
-end:
-HALT`}
-                  </pre>
-                  <p className="text-xs text-gray-600 mt-1">Переход выполнится (R0 = 0)</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Архитектура процессора */}
-            <div className="bg-green-50 rounded-lg border border-green-200 p-6">
-              <h5 className="text-lg font-semibold text-green-900 font-heading mb-4">
-                🏗️ Архитектура процессора
-              </h5>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="text-center">
-                  <div className="bg-green-100 rounded-lg p-3 mb-2">
-                    <div className="text-green-800 font-medium">Двухадресная RISC</div>
-                  </div>
-                  <p className="text-green-700">Операции с двумя операндами, результат в регистре</p>
-                </div>
-                <div className="text-center">
-                  <div className="bg-green-100 rounded-lg p-3 mb-2">
-                    <div className="text-green-800 font-medium">Фон-Неймана</div>
-                  </div>
-                  <p className="text-green-700">Единая память для команд и данных</p>
-                </div>
-                <div className="text-center">
-                  <div className="bg-green-100 rounded-lg p-3 mb-2">
-                    <div className="text-green-800 font-medium">8 регистров</div>
-                  </div>
-                  <p className="text-green-700">R0-R7 (R0 - аккумулятор)</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Фазы выполнения команды */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
-              <h5 className="text-xl font-bold text-blue-900 font-heading mb-4 flex items-center">
-                <span className="mr-2">⚙️</span>
-                Фазы выполнения команды
-              </h5>
-              <p className="text-blue-800 text-sm mb-4 font-body">
-                Каждая команда выполняется в три этапа: выборка (Fetch), дешифрация (Decode) и исполнение (Execute)
-              </p>
-
-              <div className="space-y-4">
-                {/* Фаза Fetch */}
-                <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500">
-                  <div className="flex items-center mb-2">
-                    <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded mr-2">FETCH</span>
-                    <h6 className="font-bold text-blue-800">Выборка</h6>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Загрузка инструкции из памяти команд по адресу, указанному в счетчике команд (PC)
-                  </p>
-                  <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs">
-                    <strong className="text-blue-800">Что происходит:</strong>
-                    <ul className="list-disc list-inside text-gray-700 mt-1 space-y-1">
-                      <li>Чтение команды из <code className="font-mono text-blue-600">compiled_code[PC]</code></li>
-                      <li>Загрузка команды в регистр команд (IR)</li>
-                      <li>Регистры <strong>НЕ изменяются</strong></li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Фаза Decode */}
-                <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-yellow-500">
-                  <div className="flex items-center mb-2">
-                    <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded mr-2">DECODE</span>
-                    <h6 className="font-bold text-yellow-800">Дешифрация</h6>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Дешифрация регистров и операндов, используемых в инструкции
-                  </p>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs">
-                    <strong className="text-yellow-800">Что происходит:</strong>
-                    <ul className="list-disc list-inside text-gray-700 mt-1 space-y-1">
-                      <li>Парсинг команды на инструкцию и операнды</li>
-                      <li>Определение режима адресации</li>
-                      <li>Установка опкода команды в IR</li>
-                      <li>Регистры <strong>НЕ изменяются</strong></li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Фаза Execute */}
-                <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
-                  <div className="flex items-center mb-2">
-                    <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded mr-2">EXECUTE</span>
-                    <h6 className="font-bold text-green-800">Исполнение</h6>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Выполнение операции: чтение регистров, выполнение операции в АЛУ, запись результата
-                  </p>
-                  <div className="bg-green-50 border border-green-200 rounded p-2 text-xs">
-                    <strong className="text-green-800">Что происходит:</strong>
-                    <ul className="list-disc list-inside text-gray-700 mt-1 space-y-1">
-                      <li>Чтение регистра(ов) из банка регистров</li>
-                      <li>Выполнение операций сдвига и АЛУ (арифметико-логическое устройство)</li>
-                      <li>Обратная запись регистра(ов) в банк регистров</li>
-                      <li>Обновление флагов состояния (Z, C, V, N)</li>
-                      <li>Регистры <strong>МОГУТ изменяться</strong> в зависимости от команды</li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Пример выполнения */}
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
-                  <h6 className="font-bold text-purple-800 mb-3">📋 Пример выполнения команды LDI R0, 7</h6>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center space-x-2 bg-white rounded p-2">
-                      <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">FETCH</span>
-                      <span className="text-gray-700">Чтение команды "LDI R0, 7" из памяти, PC=0x0000</span>
-                      <span className="text-gray-500 text-xs ml-auto">Регистры: R0=0x0000, R1=0x0000...</span>
-                    </div>
-                    <div className="flex items-center space-x-2 bg-white rounded p-2">
-                      <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded">DECODE</span>
-                      <span className="text-gray-700">Парсинг: инструкция=LDI, операнды=[R0, 7]</span>
-                      <span className="text-gray-500 text-xs ml-auto">Регистры: R0=0x0000, R1=0x0000...</span>
-                    </div>
-                    <div className="flex items-center space-x-2 bg-white rounded p-2">
-                      <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">EXECUTE</span>
-                      <span className="text-gray-700">Выполнение: R0 = 7</span>
-                      <span className="text-green-600 font-bold text-xs ml-auto">Регистры: R0=0x0007 ⚠️, R1=0x0000...</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-purple-700 mt-2">
-                    💡 В интерфейсе каждая фаза отображается в отдельной строке таблицы "Пошаговое выполнение программы" с цветовой индикацией
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Как работает выполнение программы */}
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-6">
-              <h5 className="text-xl font-bold text-green-900 font-heading mb-4 flex items-center">
-                <span className="mr-2">🎯</span>
-                Как работает выполнение программы
-              </h5>
-
-              <div className="space-y-4">
-                {/* Шаг 1 */}
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h6 className="font-bold text-green-800 mb-2">1️⃣ Загрузка задачи</h6>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Выберите задачу в панели "Задания" и нажмите <strong>"Загрузить данные для задачи"</strong> — данные загружаются в память, программа компилируется.
-                  </p>
-                  <div className="bg-green-50 border-l-4 border-green-500 p-2 text-sm">
-                    <strong className="text-green-800">✅ Готово</strong> — программа и данные загружены!
-                  </div>
-                </div>
-
-                {/* Шаг 2 */}
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h6 className="font-bold text-green-800 mb-2">2️⃣ Пошаговое выполнение</h6>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Нажимайте <strong>"Следующий шаг"</strong> для выполнения одной команды:
-                  </p>
-                  <ul className="text-sm text-gray-700 space-y-1 ml-4">
-                    <li>📊 <strong>Счётчик команд (PC)</strong> увеличивается на 1</li>
-                    <li>🔧 <strong>Регистр команд (IR)</strong> показывает текущую команду</li>
-                    <li>💾 <strong>Регистры R0-R7</strong> обновляются с новыми значениями (в hex-формате)</li>
-                    <li>🚩 <strong>Флаги (Z, C, V, N)</strong> меняются в зависимости от результата</li>
-                  </ul>
-                </div>
-
-                {/* Шаг 3 */}
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h6 className="font-bold text-green-800 mb-2">3️⃣ Визуализация в блоке "Память"</h6>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                    <div className="bg-green-50 p-3 rounded">
-                      <strong className="text-green-800">История выполнения:</strong>
-                      <p className="text-gray-700 mt-1">
-                        История каждого шага с состоянием регистров до и после выполнения команды
-                      </p>
-                    </div>
-                    <div className="bg-green-50 p-3 rounded">
-                      <strong className="text-green-800">Состояние памяти:</strong>
-                      <p className="text-gray-700 mt-1">
-                        Текущие данные в памяти с адресами и значениями ячеек
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Пример */}
-                <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200">
-                  <h6 className="font-bold text-orange-800 mb-2">📝 Пример: LDI R0, 0x000A; LDI R1, 0x0003; ADD R0, R0, R1</h6>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <span className="bg-green-500 text-white px-2 py-1 rounded font-mono text-xs">Шаг 1</span>
-                      <span className="text-gray-700">LDI R0, 0x000A → R0 = <code className="text-green-600 font-bold">0x000A</code></span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="bg-green-500 text-white px-2 py-1 rounded font-mono text-xs">Шаг 2</span>
-                      <span className="text-gray-700">LDI R1, 0x0003 → R1 = <code className="text-green-600 font-bold">0x0003</code></span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="bg-green-500 text-white px-2 py-1 rounded font-mono text-xs">Шаг 3</span>
-                      <span className="text-gray-700">ADD R0, R0, R1 → R0 = <code className="text-green-600 font-bold">0x000D</code> (10+3)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
       </div>

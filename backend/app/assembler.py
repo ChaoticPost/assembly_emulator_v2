@@ -1,35 +1,32 @@
 """
-Ассемблер для двухадресного RISC процессора
+Ассемблер для одноадресного процессора Фон-Неймана
 """
 import re
 from typing import List, Dict, Tuple, Optional, Any
 from .models import AddressingMode
 
 class RISCAssembler:
-    """Ассемблер для двухадресного RISC процессора"""
+    """Ассемблер для одноадресного процессора Фон-Неймана"""
     
     def __init__(self):
         self.instructions = {
             # Арифметико-логические команды
-            'ADD': 0x01,    # ADD rd, rs1, rs2
-            'SUB': 0x02,    # SUB rd, rs1, rs2
-            'MUL': 0x03,    # MUL rd, rs1, rs2
-            'DIV': 0x04,    # DIV rd, rs1, rs2
-            'AND': 0x05,    # AND rd, rs1, rs2
-            'OR':  0x06,    # OR  rd, rs1, rs2
-            'XOR': 0x07,    # XOR rd, rs1, rs2
-            'NOT': 0x08,    # NOT rd, rs1
+            'ADD': 0x01,    # ADD operand - ACC = ACC + operand
+            'SUB': 0x02,    # SUB operand - ACC = ACC - operand
+            'MUL': 0x03,    # MUL operand - ACC = ACC * operand
+            'DIV': 0x04,    # DIV operand - ACC = ACC / operand
+            'AND': 0x05,    # AND operand - ACC = ACC & operand
+            'OR':  0x06,    # OR  operand - ACC = ACC | operand
+            'XOR': 0x07,    # XOR operand - ACC = ACC ^ operand
+            'NOT': 0x08,    # NOT - ACC = ~ACC
             
             # Команды пересылки данных
-            'MOV': 0x10,    # MOV rd, rs1
-            'LDI': 0x11,    # LDI rd, imm
-            'LDR': 0x12,    # LDR rd, [address]
-            'LDRR': 0x13,   # LDRR rd, [rs1]
-            'STR': 0x14,    # STR rs1, [address]
-            'STRR': 0x15,   # STRR rs1, [rd]
+            'LDA': 0x10,    # LDA operand - ACC = operand
+            'STA': 0x11,    # STA operand - [operand] = ACC
+            'LDI': 0x12,    # LDI imm - ACC = immediate
             
             # Команды сравнения и переходов
-            'CMP': 0x20,    # CMP rs1, rs2
+            'CMP': 0x20,    # CMP operand - сравнить ACC и operand
             'JMP': 0x21,    # JMP address
             'JZ':  0x22,    # JZ address
             'JNZ': 0x23,    # JNZ address
@@ -56,41 +53,31 @@ class RISCAssembler:
         else:
             return int(value)
     
-    def _parse_register(self, reg_str: str) -> int:
-        """Парсинг регистра (R0-R7)"""
-        reg_str = reg_str.upper().strip()
-        if reg_str.startswith('R') and len(reg_str) == 2:
-            reg_num = int(reg_str[1])
-            if 0 <= reg_num <= 7:
-                return reg_num
-        raise ValueError(f"Invalid register: {reg_str}")
-    
     def _parse_operand(self, operand_str: str) -> Tuple[Any, AddressingMode]:
-        """Парсинг операнда с определением типа адресации"""
+        """Парсинг операнда с определением типа адресации (одноадресная архитектура)
+        
+        Форматы:
+        - Непосредственное значение: LDA 100 (десятичное число без префикса)
+        - Прямой адрес: LDA [0x0100] или LDA 0x0100 (hex с префиксом 0x)
+        """
         operand_str = operand_str.strip()
         
-        # Непосредственная адресация (число)
-        if operand_str.isdigit() or (operand_str.startswith('-') and operand_str[1:].isdigit()):
-            return self._parse_number(operand_str), AddressingMode.IMMEDIATE
-        
-        # Шестнадцатеричное число
-        if operand_str.startswith('0x'):
-            return self._parse_number(operand_str), AddressingMode.IMMEDIATE
-        
-        # Регистровая адресация (R0-R7)
-        if operand_str.upper().startswith('R') and len(operand_str) == 2:
-            return self._parse_register(operand_str), AddressingMode.REGISTER
-        
-        # Прямая адресация [address]
+        # Прямая адресация [address] - всегда прямой адрес памяти
         if operand_str.startswith('[') and operand_str.endswith(']'):
             address_str = operand_str[1:-1].strip()
-            # Проверяем, является ли содержимое регистром
-            if address_str.upper().startswith('R') and len(address_str) == 2:
-                return self._parse_register(address_str), AddressingMode.INDIRECT_REGISTER
-            else:
-                return self._parse_number(address_str), AddressingMode.DIRECT
+            return self._parse_number(address_str), AddressingMode.DIRECT
         
-        # Метка (для переходов)
+        # Шестнадцатеричное число (0x...) - прямой адрес памяти
+        if operand_str.startswith('0x') or operand_str.startswith('0X'):
+            addr = self._parse_number(operand_str)
+            return addr, AddressingMode.DIRECT
+        
+        # Десятичное число (без префикса) - непосредственное значение
+        if operand_str.isdigit() or (operand_str.startswith('-') and operand_str[1:].isdigit()):
+            val = self._parse_number(operand_str)
+            return val, AddressingMode.IMMEDIATE
+        
+        # Метка (для переходов) - будет разрешена позже
         return operand_str, AddressingMode.IMMEDIATE
     
     def parse_line(self, line: str, resolve_labels: bool = False, labels: Dict[str, int] = None) -> Tuple[Optional[str], Optional[str], Optional[List[str]]]:
@@ -123,31 +110,45 @@ class RISCAssembler:
         
         return label, instruction, operands
     
-    def _encode_instruction(self, opcode: int, rd: int = 0, rs1: int = 0, rs2: int = 0, 
-                          immediate: int = 0, addressing_mode: AddressingMode = AddressingMode.REGISTER) -> int:
-        """Кодирование инструкции в машинный код"""
-        # Формат команды: 16 бит для простых команд, 32 бита для сложных
-        # [15:12] - код операции (4 бита)
-        # [11:9]  - регистр назначения rd (3 бита)
-        # [8:6]   - первый исходный регистр rs1 (3 бита)
-        # [5:3]   - второй исходный регистр rs2 (3 бита)
-        # [2:0]   - режим адресации (3 бита)
+    def _encode_instruction(self, opcode: int, operand: int = 0, 
+                          addressing_mode: AddressingMode = AddressingMode.IMMEDIATE) -> int:
+        """Кодирование инструкции в машинный код (одноадресная архитектура)
         
-        # Для команд с непосредственными значениями используем 32-битный формат
-        if addressing_mode == AddressingMode.IMMEDIATE and immediate != 0:
-            # 32-битный формат: [31:16] - immediate, [15:0] - остальные поля
-            return (immediate << 16) | (opcode << 12) | (rd << 9) | (rs1 << 6) | (rs2 << 3) | self._addressing_mode_to_code(addressing_mode)
-        else:
-            # 16-битный формат
-            return (opcode << 12) | (rd << 9) | (rs1 << 6) | (rs2 << 3) | self._addressing_mode_to_code(addressing_mode)
+        Формат команды:
+        - 16 бит: [15:12] - код операции (4 бита), [11:0] - адрес/значение (12 бит)
+        - 32 бит (для непосредственных значений): [31:16] - значение (16 бит), [15:0] - код операции и адрес
+        """
+        # Для команд без операнда (NOT, HALT, NOP) используем 16-битный формат
+        if operand == 0 and addressing_mode == AddressingMode.IMMEDIATE:
+            # 16-битный формат: [15:12] - opcode, [11:0] - 0
+            return (opcode << 12)
+        
+        # Для команд с непосредственными значениями (IMMEDIATE режим)
+        if addressing_mode == AddressingMode.IMMEDIATE and operand != 0:
+            # Если значение помещается в 12 бит, используем 16-битный формат
+            if operand <= 0xFFF:
+                # 16-битный формат: [15:12] - opcode, [11:0] - immediate value
+                return (opcode << 12) | (operand & 0xFFF)
+            else:
+                # Если значение не помещается в 12 бит, используем 32-битный формат
+                # 32-битный формат: [31:16] - immediate value (16 бит), [15:12] - opcode, [11:0] - 0
+                return (operand << 16) | (opcode << 12)
+        
+        # Для команд с адресами памяти (DIRECT режим) используем 16-битный формат
+        if addressing_mode == AddressingMode.DIRECT:
+            # 16-битный формат: [15:12] - opcode, [11:0] - address (12 бит, максимум 0xFFF)
+            if operand > 0xFFF:
+                raise Exception(f"Address {operand} exceeds 12-bit limit (0xFFF)")
+            return (opcode << 12) | (operand & 0xFFF)
+        
+        # По умолчанию 16-битный формат
+        return (opcode << 12) | (operand & 0xFFF)
     
     def _addressing_mode_to_code(self, mode: AddressingMode) -> int:
-        """Преобразование режима адресации в код"""
+        """Преобразование режима адресации в код (одноадресная архитектура)"""
         mode_codes = {
             AddressingMode.IMMEDIATE: 0,
-            AddressingMode.DIRECT: 1,
-            AddressingMode.REGISTER: 2,
-            AddressingMode.INDIRECT_REGISTER: 3
+            AddressingMode.DIRECT: 1
         }
         return mode_codes.get(mode, 0)
     
@@ -223,46 +224,46 @@ class RISCAssembler:
         
         opcode = self.instructions[instruction]
         
-        # Определяем тип команды и операнды
+        # Определяем тип команды и операнды (одноадресная архитектура)
         if instruction in ['ADD', 'SUB', 'MUL', 'DIV', 'AND', 'OR', 'XOR']:
             return {
                 "opcode": opcode,
-                "type": "R",
-                "description": f"{instruction} rd, rs1, rs2",
-                "operands": ["rd", "rs1", "rs2"],
-                "addressing_modes": ["register"]
+                "type": "I",
+                "description": f"{instruction} operand",
+                "operands": ["operand"],
+                "addressing_modes": ["immediate", "direct"]
             }
-        elif instruction in ['NOT', 'MOV', 'LDRR', 'STRR']:
+        elif instruction == 'NOT':
             return {
                 "opcode": opcode,
-                "type": "R",
-                "description": f"{instruction} rd, rs1",
-                "operands": ["rd", "rs1"],
-                "addressing_modes": ["register"]
+                "type": "S",
+                "description": f"{instruction}",
+                "operands": [],
+                "addressing_modes": []
             }
-        elif instruction in ['LDI']:
+        elif instruction in ['LDA', 'STA']:
             return {
                 "opcode": opcode,
                 "type": "I",
-                "description": f"{instruction} rd, immediate",
-                "operands": ["rd", "immediate"],
+                "description": f"{instruction} operand",
+                "operands": ["operand"],
+                "addressing_modes": ["immediate", "direct"]
+            }
+        elif instruction == 'LDI':
+            return {
+                "opcode": opcode,
+                "type": "I",
+                "description": f"{instruction} immediate",
+                "operands": ["immediate"],
                 "addressing_modes": ["immediate"]
             }
-        elif instruction in ['LDR', 'STR']:
+        elif instruction == 'CMP':
             return {
                 "opcode": opcode,
                 "type": "I",
-                "description": f"{instruction} rd, [address]",
-                "operands": ["rd", "address"],
-                "addressing_modes": ["direct"]
-            }
-        elif instruction in ['CMP']:
-            return {
-                "opcode": opcode,
-                "type": "R",
-                "description": f"{instruction} rs1, rs2",
-                "operands": ["rs1", "rs2"],
-                "addressing_modes": ["register"]
+                "description": f"{instruction} operand",
+                "operands": ["operand"],
+                "addressing_modes": ["immediate", "direct"]
             }
         elif instruction in ['JMP', 'JZ', 'JNZ', 'JC', 'JNC', 'JV', 'JNV', 'JN', 'JNN']:
             return {

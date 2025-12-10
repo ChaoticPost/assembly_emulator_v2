@@ -1,11 +1,11 @@
 """
-Эмулятор двухадресного RISC процессора с архитектурой Фон-Неймана
+Эмулятор одноадресного процессора с архитектурой Фон-Неймана
 """
 from typing import List, Dict, Any, Optional, Tuple
 from .models import ProcessorState, MemoryState, AddressingMode, InstructionField
 
 class RISCProcessor:
-    """Эмулятор двухадресного RISC процессора"""
+    """Эмулятор одноадресного процессора Фон-Неймана"""
     
     def __init__(self, memory_size: int = 8192):
         self.memory_size = memory_size
@@ -21,41 +21,38 @@ class RISCProcessor:
         self._current_instruction = None
         self._current_operands = None
         
-        # Система команд RISC процессора
+        # Система команд одноадресного процессора (ACC + один операнд)
         self.instructions = {
-            # Арифметико-логические команды (R-тип)
-            'ADD': 0x01,    # ADD rd, rs1, rs2 - rd = rs1 + rs2
-            'SUB': 0x02,    # SUB rd, rs1, rs2 - rd = rs1 - rs2
-            'MUL': 0x03,    # MUL rd, rs1, rs2 - rd = rs1 * rs2
-            'DIV': 0x04,    # DIV rd, rs1, rs2 - rd = rs1 / rs2
-            'AND': 0x05,    # AND rd, rs1, rs2 - rd = rs1 & rs2
-            'OR':  0x06,    # OR  rd, rs1, rs2 - rd = rs1 | rs2
-            'XOR': 0x07,    # XOR rd, rs1, rs2 - rd = rs1 ^ rs2
-            'NOT': 0x08,    # NOT rd, rs1     - rd = ~rs1
+            # Арифметико-логические команды
+            'ADD': 0x01,    # ADD operand - ACC = ACC + operand
+            'SUB': 0x02,    # SUB operand - ACC = ACC - operand
+            'MUL': 0x03,    # MUL operand - ACC = ACC * operand
+            'DIV': 0x04,    # DIV operand - ACC = ACC / operand
+            'AND': 0x05,    # AND operand - ACC = ACC & operand
+            'OR':  0x06,    # OR  operand - ACC = ACC | operand
+            'XOR': 0x07,    # XOR operand - ACC = ACC ^ operand
+            'NOT': 0x08,    # NOT         - ACC = ~ACC
             
-            # Команды пересылки данных (I-тип)
-            'MOV': 0x10,    # MOV rd, rs1     - rd = rs1
-            'LDI': 0x11,    # LDI rd, imm     - rd = immediate
-            'LDR': 0x12,    # LDR rd, [rs1]   - rd = [rs1] (прямая адресация)
-            'LDRR': 0x13,   # LDRR rd, [rs1]  - rd = [rs1] (косвенно-регистровая)
-            'STR': 0x14,    # STR rs1, [rd]   - [rd] = rs1 (прямая адресация)
-            'STRR': 0x15,   # STRR rs1, [rd]  - [rd] = rs1 (косвенно-регистровая)
+            # Команды пересылки данных
+            'LDA': 0x10,    # LDA operand - ACC = operand (загрузка в аккумулятор)
+            'STA': 0x11,    # STA operand - [operand] = ACC (сохранение из аккумулятора)
+            'LDI': 0x12,    # LDI imm     - ACC = immediate (непосредственная загрузка)
             
-            # Команды сравнения и переходов (I-тип)
-            'CMP': 0x20,    # CMP rs1, rs2    - сравнить rs1 и rs2
-            'JMP': 0x21,    # JMP addr        - безусловный переход
-            'JZ':  0x22,    # JZ addr         - переход если Z=1
-            'JNZ': 0x23,    # JNZ addr        - переход если Z=0
-            'JC':  0x24,    # JC addr         - переход если C=1
-            'JNC': 0x25,    # JNC addr        - переход если C=0
-            'JV':  0x26,    # JV addr         - переход если V=1
-            'JNV': 0x27,    # JNV addr        - переход если V=0
-            'JN':  0x28,    # JN addr         - переход если N=1
-            'JNN': 0x29,    # JNN addr        - переход если N=0
+            # Команды сравнения и переходов
+            'CMP': 0x20,    # CMP operand - сравнить ACC и operand
+            'JMP': 0x21,    # JMP addr    - безусловный переход
+            'JZ':  0x22,    # JZ addr     - переход если Z=1
+            'JNZ': 0x23,    # JNZ addr    - переход если Z=0
+            'JC':  0x24,    # JC addr     - переход если C=1
+            'JNC': 0x25,    # JNC addr    - переход если C=0
+            'JV':  0x26,    # JV addr     - переход если V=1
+            'JNV': 0x27,    # JNV addr    - переход если V=0
+            'JN':  0x28,    # JN addr     - переход если N=1
+            'JNN': 0x29,    # JNN addr    - переход если N=0
             
             # Системные команды
-            'HALT': 0xFF,   # HALT            - остановка
-            'NOP':  0x00,   # NOP             - нет операции
+            'HALT': 0xFF,   # HALT        - остановка
+            'NOP':  0x00,   # NOP         - нет операции
         }
         
     def reset(self):
@@ -83,108 +80,102 @@ class RISCProcessor:
         else:
             return int(value)
     
-    def _parse_register(self, reg_str: str) -> int:
-        """Парсинг регистра (R0-R7)"""
-        reg_str = reg_str.upper().strip()
-        if reg_str.startswith('R') and len(reg_str) == 2:
-            reg_num = int(reg_str[1])
-            if 0 <= reg_num <= 7:
-                return reg_num
-        raise ValueError(f"Invalid register: {reg_str}")
-    
     def _parse_operand(self, operand_str: str) -> Tuple[Any, AddressingMode]:
-        """Парсинг операнда с определением типа адресации"""
+        """Парсинг операнда с определением типа адресации (одноадресная архитектура)
+        
+        Форматы:
+        - Непосредственное значение: LDA 100 (десятичное число без префикса)
+        - Прямой адрес: LDA [0x0100] или LDA 0x0100 (hex с префиксом 0x)
+        """
         operand_str = operand_str.strip()
         
-        # Непосредственная адресация (число)
-        if operand_str.isdigit() or (operand_str.startswith('-') and operand_str[1:].isdigit()):
-            return self._parse_number(operand_str), AddressingMode.IMMEDIATE
-        
-        # Шестнадцатеричное число
-        if operand_str.startswith('0x'):
-            return self._parse_number(operand_str), AddressingMode.IMMEDIATE
-        
-        # Прямая и косвенно-регистровая адресация [address] или [R0-R7]
+        # Прямая адресация [address] - всегда прямой адрес памяти
         if operand_str.startswith('[') and operand_str.endswith(']'):
             inner = operand_str[1:-1].strip()
-            # Косвенно-регистровая адресация [R0-R7]
-            if inner.upper().startswith('R') and len(inner) == 2:
-                return self._parse_register(inner), AddressingMode.INDIRECT_REGISTER
-            # Прямая адресация [address]
-            else:
-                addr = self._parse_number(inner)
-                print(f"DEBUG _parse_operand: operand_str='{operand_str}', inner='{inner}', addr=0x{addr:04X}, mode=DIRECT")
-                return addr, AddressingMode.DIRECT
+            addr = self._parse_number(inner)
+            print(f"DEBUG _parse_operand: operand_str='{operand_str}', inner='{inner}', addr=0x{addr:04X}, mode=DIRECT")
+            return addr, AddressingMode.DIRECT
         
-        # Регистровая адресация (R0-R7)
-        if operand_str.upper().startswith('R') and len(operand_str) == 2:
-            return self._parse_register(operand_str), AddressingMode.REGISTER
+        # Шестнадцатеричное число (0x...) - прямой адрес памяти
+        if operand_str.startswith('0x') or operand_str.startswith('0X'):
+            addr = self._parse_number(operand_str)
+            print(f"DEBUG _parse_operand: operand_str='{operand_str}', addr=0x{addr:04X}, mode=DIRECT (hex адрес)")
+            return addr, AddressingMode.DIRECT
         
-        # Метка (для переходов)
+        # Десятичное число (без префикса) - непосредственное значение
+        if operand_str.isdigit() or (operand_str.startswith('-') and operand_str[1:].isdigit()):
+            val = self._parse_number(operand_str)
+            print(f"DEBUG _parse_operand: operand_str='{operand_str}', value={val}, mode=IMMEDIATE (decimal)")
+            return val, AddressingMode.IMMEDIATE
+        
+        # Метка (для переходов) - будет разрешена позже
         return operand_str, AddressingMode.IMMEDIATE
     
-    def _encode_instruction(self, opcode: int, rd: int = 0, rs1: int = 0, rs2: int = 0, 
-                          immediate: int = 0, addressing_mode: AddressingMode = AddressingMode.REGISTER) -> int:
-        """Кодирование инструкции в машинный код"""
-        # Формат команды: 16 бит для простых команд, 32 бита для сложных
-        # [15:12] - код операции (4 бита)
-        # [11:9]  - регистр назначения rd (3 бита)
-        # [8:6]   - первый исходный регистр rs1 (3 бита)
-        # [5:3]   - второй исходный регистр rs2 (3 бита)
-        # [2:0]   - режим адресации (3 бита)
+    def _encode_instruction(self, opcode: int, operand: int = 0, 
+                          addressing_mode: AddressingMode = AddressingMode.IMMEDIATE) -> int:
+        """Кодирование инструкции в машинный код (одноадресная архитектура)
         
-        # Для команд с непосредственными значениями используем 32-битный формат
-        if addressing_mode == AddressingMode.IMMEDIATE and immediate != 0:
-            # 32-битный формат: [31:16] - immediate, [15:0] - остальные поля
-            return (immediate << 16) | (opcode << 12) | (rd << 9) | (rs1 << 6) | (rs2 << 3) | self._addressing_mode_to_code(addressing_mode)
-        else:
-            # 16-битный формат
-            return (opcode << 12) | (rd << 9) | (rs1 << 6) | (rs2 << 3) | self._addressing_mode_to_code(addressing_mode)
+        Формат команды:
+        - 16 бит: [15:12] - код операции (4 бита), [11:0] - адрес/значение (12 бит)
+        - 32 бит (для непосредственных значений): [31:16] - значение (16 бит), [15:0] - код операции и адрес
+        """
+        # Для команд без операнда (NOT, HALT, NOP) используем 16-битный формат
+        if operand == 0 and addressing_mode == AddressingMode.IMMEDIATE:
+            # 16-битный формат: [15:12] - opcode, [11:0] - 0
+            return (opcode << 12)
+        
+        # Для команд с непосредственными значениями (IMMEDIATE режим)
+        if addressing_mode == AddressingMode.IMMEDIATE and operand != 0:
+            # Если значение помещается в 12 бит, используем 16-битный формат
+            if operand <= 0xFFF:
+                # 16-битный формат: [15:12] - opcode, [11:0] - immediate value
+                return (opcode << 12) | (operand & 0xFFF)
+            else:
+                # Если значение не помещается в 12 бит, используем 32-битный формат
+                # 32-битный формат: [31:16] - immediate value (16 бит), [15:12] - opcode, [11:0] - 0
+                return (operand << 16) | (opcode << 12)
+        
+        # Для команд с адресами памяти (DIRECT режим) используем 16-битный формат
+        if addressing_mode == AddressingMode.DIRECT:
+            # 16-битный формат: [15:12] - opcode, [11:0] - address (12 бит, максимум 0xFFF)
+            if operand > 0xFFF:
+                raise Exception(f"Address {operand} exceeds 12-bit limit (0xFFF)")
+            return (opcode << 12) | (operand & 0xFFF)
+        
+        # По умолчанию 16-битный формат
+        return (opcode << 12) | (operand & 0xFFF)
     
     def _addressing_mode_to_code(self, mode: AddressingMode) -> int:
-        """Преобразование режима адресации в код"""
+        """Преобразование режима адресации в код (одноадресная архитектура)"""
         mode_codes = {
             AddressingMode.IMMEDIATE: 0,
-            AddressingMode.DIRECT: 1,
-            AddressingMode.REGISTER: 2,
-            AddressingMode.INDIRECT_REGISTER: 3
+            AddressingMode.DIRECT: 1
         }
         return mode_codes.get(mode, 0)
     
     def _decode_instruction(self, instruction: int) -> InstructionField:
-        """Декодирование инструкции для отображения полей"""
-        if instruction > 0xFFFF:  # 32-битная команда
+        """Декодирование инструкции для отображения полей (одноадресная архитектура)"""
+        if instruction > 0xFFFF:  # 32-битная команда (для LDI с непосредственным значением)
             immediate = instruction >> 16
             opcode = (instruction >> 12) & 0xF
-            rd = (instruction >> 9) & 0x7
-            rs1 = (instruction >> 6) & 0x7
-            rs2 = (instruction >> 3) & 0x7
-            addr_mode_code = instruction & 0x7
+            operand = immediate  # Для 32-битного формата операнд = непосредственное значение
+            addressing_mode = AddressingMode.IMMEDIATE
         else:  # 16-битная команда
-            immediate = 0
             opcode = (instruction >> 12) & 0xF
-            rd = (instruction >> 9) & 0x7
-            rs1 = (instruction >> 6) & 0x7
-            rs2 = (instruction >> 3) & 0x7
-            addr_mode_code = instruction & 0x7
-        
-        # Определяем режим адресации
-        mode_codes = {0: AddressingMode.IMMEDIATE, 1: AddressingMode.DIRECT, 
-                     2: AddressingMode.REGISTER, 3: AddressingMode.INDIRECT_REGISTER}
-        addressing_mode = mode_codes.get(addr_mode_code, AddressingMode.REGISTER)
+            operand = instruction & 0xFFF  # [11:0] - адрес или значение
+            # По умолчанию считаем адресом памяти (DIRECT)
+            # Для точного определения нужен контекст команды
+            addressing_mode = AddressingMode.DIRECT if operand != 0 else AddressingMode.IMMEDIATE
+            immediate = 0
         
         # Определяем тип команды
-        instruction_type = "I" if immediate != 0 else "R"
+        instruction_type = "I" if operand != 0 or immediate != 0 else "S"
         
         return InstructionField(
             opcode=opcode,
             opcode_bits=format(opcode, '04b'),
-            rd=rd,
-            rd_bits=format(rd, '03b'),
-            rs1=rs1,
-            rs1_bits=format(rs1, '03b'),
-            rs2=rs2,
-            rs2_bits=format(rs2, '03b'),
+            operand=operand if operand != 0 else immediate,
+            operand_bits=format(operand, '012b') if operand != 0 else (format(immediate, '016b') if immediate != 0 else ""),
             immediate=immediate,
             immediate_bits=format(immediate, '016b') if immediate != 0 else "",
             addressing_mode=addressing_mode,
@@ -192,20 +183,9 @@ class RISCProcessor:
         )
     
     def _get_operand_value(self, operand: Any, addressing_mode: AddressingMode) -> int:
-        """Получение значения операнда в зависимости от режима адресации"""
+        """Получение значения операнда в зависимости от режима адресации (одноадресная архитектура)"""
         if addressing_mode == AddressingMode.IMMEDIATE:
             return operand
-        elif addressing_mode == AddressingMode.REGISTER:
-            # КРИТИЧНО: Проверяем, что регистры инициализированы
-            if not self.processor.registers:
-                print(f"ERROR _get_operand_value REGISTER: Регистры не инициализированы! operand=R{operand}")
-                return 0
-            if operand < 0 or operand >= len(self.processor.registers):
-                print(f"ERROR _get_operand_value REGISTER: Неверный номер регистра! operand=R{operand}, registers_count={len(self.processor.registers)}")
-                return 0
-            value = self.processor.registers[operand]
-            print(f"DEBUG _get_operand_value REGISTER: operand=R{operand}, value=0x{value:04X} (decimal {value})")
-            return value
         elif addressing_mode == AddressingMode.DIRECT:
             if 0 <= operand < len(self.memory.ram):
                 value = self.memory.ram[operand]
@@ -213,24 +193,11 @@ class RISCProcessor:
                 return value
             print(f"DEBUG _get_operand_value DIRECT: operand=0x{operand:04X} OUT_OF_BOUNDS (memory_size=0x{len(self.memory.ram):04X})")
             return 0
-        elif addressing_mode == AddressingMode.INDIRECT_REGISTER:
-            addr = self.processor.registers[operand]
-            if not self.memory.ram:
-                print(f"DEBUG _get_operand_value INDIRECT_REGISTER: Память не инициализирована! operand=R{operand}, addr=0x{addr:04X}")
-                return 0
-            if 0 <= addr < len(self.memory.ram):
-                value = self.memory.ram[addr]
-                print(f"DEBUG _get_operand_value INDIRECT_REGISTER: operand=R{operand}, R{operand}=0x{addr:04X}, memory[0x{addr:04X}]=0x{value:04X} (decimal {value})")
-                return value
-            print(f"DEBUG _get_operand_value INDIRECT_REGISTER: operand=R{operand}, addr=0x{addr:04X} OUT_OF_BOUNDS (memory_size=0x{len(self.memory.ram):04X})")
-            return 0
         return 0
     
     def _set_operand_value(self, operand: Any, value: int, addressing_mode: AddressingMode):
-        """Установка значения операнда в зависимости от режима адресации"""
-        if addressing_mode == AddressingMode.REGISTER:
-            self._update_register(operand, value)
-        elif addressing_mode == AddressingMode.DIRECT:
+        """Установка значения операнда в зависимости от режима адресации (одноадресная архитектура)"""
+        if addressing_mode == AddressingMode.DIRECT:
             # КРИТИЧНО: Создаем новый список для Pydantic, чтобы изменения были видны
             if not self.memory.ram:
                 # Если память не инициализирована, создаем новую
@@ -250,27 +217,6 @@ class RISCProcessor:
             new_ram[operand] = int(value) & 0xFFFF
             self.memory.ram = new_ram
             print(f"DEBUG _set_operand_value: Записано значение 0x{value:04X} (decimal {value}) по адресу 0x{operand:04X}, ram[0x{operand:04X}]={self.memory.ram[operand]}")
-        elif addressing_mode == AddressingMode.INDIRECT_REGISTER:
-            addr = self.processor.registers[operand]
-            # КРИТИЧНО: Создаем новый список для Pydantic, чтобы изменения были видны
-            if not self.memory.ram:
-                # Если память не инициализирована, создаем новую
-                min_size = max(addr + 1, self.memory_size)
-                self.memory.ram = [0] * min_size
-                print(f"DEBUG _set_operand_value: Инициализирована память размером {min_size} для косвенной адресации")
-            
-            # Гарантируем достаточный размер памяти
-            if addr >= len(self.memory.ram):
-                new_ram = list(self.memory.ram)
-                new_ram.extend([0] * (addr + 1 - len(new_ram)))
-                self.memory.ram = new_ram
-                print(f"DEBUG _set_operand_value: Расширена память до {len(self.memory.ram)} для косвенного адреса 0x{addr:04X}")
-            
-            # Создаем новый список для Pydantic
-            new_ram = list(self.memory.ram)
-            new_ram[addr] = int(value) & 0xFFFF
-            self.memory.ram = new_ram
-            print(f"DEBUG _set_operand_value: Записано значение 0x{value:04X} (decimal {value}) по косвенному адресу 0x{addr:04X} (R{operand}=0x{self.processor.registers[operand]:04X}), ram[0x{addr:04X}]={self.memory.ram[addr]}")
     
     def update_flags(self, result: int, operation: str = ""):
         """Обновление флагов после операции"""
@@ -291,366 +237,182 @@ class RISCProcessor:
         else:
             self.processor.flags["carry"] = False
     
-    def _update_register(self, rd: int, value: int):
-        """Обновить регистр rd значением value (создает новый список для Pydantic)"""
-        # Инициализируем регистры, если их нет
-        if not self.processor.registers:
-            self.processor.registers = [0] * 8
-        
-        # Создаем полностью новый список регистров (Pydantic требует нового объекта)
-        new_registers = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
-        
-        # Гарантируем, что у нас есть ровно 8 регистров
-        while len(new_registers) < 8:
-            new_registers.append(0)
-        new_registers = new_registers[:8]
-        
-        # Обновляем нужный регистр
-        if 0 <= rd < 8:
-            new_registers[rd] = int(value) & 0xFFFF
-        else:
-            raise ValueError(f"Invalid register index: {rd} (must be 0-7)")
-        
-        # Обновляем регистры в процессоре (создаем новый список для Pydantic)
-        # Важно: создаем полностью новый список, чтобы Pydantic увидел изменение
-        self.processor.registers = new_registers
+    def _update_accumulator(self, value: int):
+        """Обновить аккумулятор значением value"""
+        self.processor.accumulator = int(value) & 0xFFFF
+        print(f"DEBUG _update_accumulator: ACC = 0x{self.processor.accumulator:04X} (decimal {self.processor.accumulator})")
     
     def execute_instruction(self, instruction: str, operands: List[str] = None):
-        """Выполнение одной инструкции"""
+        """Выполнение одной инструкции (одноадресная архитектура)"""
         instruction = instruction.upper().strip()
         operands = operands or []
         
         if instruction not in self.instructions:
             raise Exception(f"Unknown instruction: {instruction}")
         
-        # Выполнение команды
-        # Формат: ADD rd, rs1, rs2 - rd = rs1 + rs2
+        # Арифметические операции: операнд всегда адрес памяти
+        # Формат: ADD addr - ACC = ACC + память[addr]
         if instruction == "ADD":
-            if len(operands) >= 3:
-                rd, _ = self._parse_operand(operands[0])
-                rs1, mode1 = self._parse_operand(operands[1])
-                rs2, mode2 = self._parse_operand(operands[2])
-                val1 = self._get_operand_value(rs1, mode1)
-                val2 = self._get_operand_value(rs2, mode2)
-                result = val1 + val2
-                # Ограничиваем результат 16-битным значением (0x0000 - 0xFFFF)
+            if len(operands) >= 1:
+                operand, mode = self._parse_operand(operands[0])
+                # Арифметические операции работают только с памятью
+                if mode != AddressingMode.DIRECT:
+                    raise Exception(f"ADD requires DIRECT addressing mode (memory address), got {mode}")
+                val = self._get_operand_value(operand, mode)
+                result = self.processor.accumulator + val
                 result = int(result) & 0xFFFF
                 self.update_flags(result, "add")
-                self._update_register(rd, result)
-                print(f"DEBUG ADD: rd={rd}, result={result}, registers[{rd}]={self.processor.registers[rd]}, all_registers={self.processor.registers}")
+                self._update_accumulator(result)
+                print(f"DEBUG ADD: ACC={self.processor.accumulator:04X}, memory[0x{operand:04X}]={val:04X}, result={result:04X}")
             else:
-                raise Exception(f"ADD requires 3 operands: ADD rd, rs1, rs2")
+                raise Exception(f"ADD requires 1 operand: ADD addr")
         
-        # Формат: SUB rd, rs1, rs2 - rd = rs1 - rs2
+        # Формат: SUB addr - ACC = ACC - память[addr]
         elif instruction == "SUB":
-            if len(operands) >= 3:
-                rd, _ = self._parse_operand(operands[0])
-                rs1, mode1 = self._parse_operand(operands[1])
-                rs2, mode2 = self._parse_operand(operands[2])
-                val1 = self._get_operand_value(rs1, mode1)
-                val2 = self._get_operand_value(rs2, mode2)
-                result = val1 - val2
-                # Ограничиваем результат 16-битным значением
+            if len(operands) >= 1:
+                operand, mode = self._parse_operand(operands[0])
+                if mode != AddressingMode.DIRECT:
+                    raise Exception(f"SUB requires DIRECT addressing mode (memory address), got {mode}")
+                val = self._get_operand_value(operand, mode)
+                result = self.processor.accumulator - val
                 result = result & 0xFFFF
                 self.update_flags(result, "sub")
-                self._update_register(rd, result)
+                self._update_accumulator(result)
             else:
-                raise Exception(f"SUB requires 3 operands: SUB rd, rs1, rs2")
+                raise Exception(f"SUB requires 1 operand: SUB addr")
         
-        # Формат: MUL rd, rs1, rs2 - rd = rs1 * rs2
+        # Формат: MUL addr - ACC = ACC * память[addr]
         elif instruction == "MUL":
-            if len(operands) >= 3:
-                rd, _ = self._parse_operand(operands[0])
-                rs1, mode1 = self._parse_operand(operands[1])
-                rs2, mode2 = self._parse_operand(operands[2])
-                val1 = self._get_operand_value(rs1, mode1)
-                val2 = self._get_operand_value(rs2, mode2)
-                result = val1 * val2
-                # Ограничиваем результат 16-битным значением
+            if len(operands) >= 1:
+                operand, mode = self._parse_operand(operands[0])
+                if mode != AddressingMode.DIRECT:
+                    raise Exception(f"MUL requires DIRECT addressing mode (memory address), got {mode}")
+                val = self._get_operand_value(operand, mode)
+                result = self.processor.accumulator * val
                 result = result & 0xFFFF
                 self.update_flags(result)
-                self._update_register(rd, result)
+                self._update_accumulator(result)
             else:
-                raise Exception(f"MUL requires 3 operands: MUL rd, rs1, rs2")
+                raise Exception(f"MUL requires 1 operand: MUL addr")
         
-        # Формат: DIV rd, rs1, rs2 - rd = rs1 / rs2
+        # Формат: DIV addr - ACC = ACC / память[addr]
         elif instruction == "DIV":
-            if len(operands) >= 3:
-                rd, _ = self._parse_operand(operands[0])
-                rs1, mode1 = self._parse_operand(operands[1])
-                rs2, mode2 = self._parse_operand(operands[2])
-                val1 = self._get_operand_value(rs1, mode1)
-                val2 = self._get_operand_value(rs2, mode2)
-                if val2 == 0:
+            if len(operands) >= 1:
+                operand, mode = self._parse_operand(operands[0])
+                if mode != AddressingMode.DIRECT:
+                    raise Exception(f"DIV requires DIRECT addressing mode (memory address), got {mode}")
+                val = self._get_operand_value(operand, mode)
+                if val == 0:
                     raise Exception("Division by zero")
-                result = val1 // val2
-                # Ограничиваем результат 16-битным значением
+                result = self.processor.accumulator // val
                 result = result & 0xFFFF
                 self.update_flags(result)
-                self._update_register(rd, result)
+                self._update_accumulator(result)
             else:
-                raise Exception(f"DIV requires 3 operands: DIV rd, rs1, rs2")
+                raise Exception(f"DIV requires 1 operand: DIV addr")
             
-        # Формат: AND rd, rs1, rs2 - rd = rs1 & rs2
+        # Логические операции: операнд всегда адрес памяти
+        # Формат: AND addr - ACC = ACC & память[addr]
         elif instruction == "AND":
-            if len(operands) >= 3:
-                rd, _ = self._parse_operand(operands[0])
-                rs1, mode1 = self._parse_operand(operands[1])
-                rs2, mode2 = self._parse_operand(operands[2])
-                val1 = self._get_operand_value(rs1, mode1)
-                val2 = self._get_operand_value(rs2, mode2)
-                result = val1 & val2
-                # Ограничиваем результат 16-битным значением
+            if len(operands) >= 1:
+                operand, mode = self._parse_operand(operands[0])
+                if mode != AddressingMode.DIRECT:
+                    raise Exception(f"AND requires DIRECT addressing mode (memory address), got {mode}")
+                val = self._get_operand_value(operand, mode)
+                result = self.processor.accumulator & val
                 result = result & 0xFFFF
                 self.update_flags(result)
-                self._update_register(rd, result)
+                self._update_accumulator(result)
             else:
-                raise Exception(f"AND requires 3 operands: AND rd, rs1, rs2")
+                raise Exception(f"AND requires 1 operand: AND addr")
             
-        # Формат: OR rd, rs1, rs2 - rd = rs1 | rs2
+        # Формат: OR addr - ACC = ACC | память[addr]
         elif instruction == "OR":
-            if len(operands) >= 3:
-                rd, _ = self._parse_operand(operands[0])
-                rs1, mode1 = self._parse_operand(operands[1])
-                rs2, mode2 = self._parse_operand(operands[2])
-                val1 = self._get_operand_value(rs1, mode1)
-                val2 = self._get_operand_value(rs2, mode2)
-                result = val1 | val2
-                # Ограничиваем результат 16-битным значением
+            if len(operands) >= 1:
+                operand, mode = self._parse_operand(operands[0])
+                if mode != AddressingMode.DIRECT:
+                    raise Exception(f"OR requires DIRECT addressing mode (memory address), got {mode}")
+                val = self._get_operand_value(operand, mode)
+                result = self.processor.accumulator | val
                 result = result & 0xFFFF
                 self.update_flags(result)
-                self._update_register(rd, result)
+                self._update_accumulator(result)
             else:
-                raise Exception(f"OR requires 3 operands: OR rd, rs1, rs2")
+                raise Exception(f"OR requires 1 operand: OR addr")
             
-        # Формат: XOR rd, rs1, rs2 - rd = rs1 ^ rs2
+        # Формат: XOR addr - ACC = ACC ^ память[addr]
         elif instruction == "XOR":
-            if len(operands) >= 3:
-                rd, _ = self._parse_operand(operands[0])
-                rs1, mode1 = self._parse_operand(operands[1])
-                rs2, mode2 = self._parse_operand(operands[2])
-                val1 = self._get_operand_value(rs1, mode1)
-                val2 = self._get_operand_value(rs2, mode2)
-                result = val1 ^ val2
-                # Ограничиваем результат 16-битным значением
+            if len(operands) >= 1:
+                operand, mode = self._parse_operand(operands[0])
+                if mode != AddressingMode.DIRECT:
+                    raise Exception(f"XOR requires DIRECT addressing mode (memory address), got {mode}")
+                val = self._get_operand_value(operand, mode)
+                result = self.processor.accumulator ^ val
                 result = result & 0xFFFF
                 self.update_flags(result)
-                self._update_register(rd, result)
+                self._update_accumulator(result)
             else:
-                raise Exception(f"XOR requires 3 operands: XOR rd, rs1, rs2")
+                raise Exception(f"XOR requires 1 operand: XOR addr")
             
-        # Формат: NOT rd, rs1 - rd = ~rs1
+        # Формат: NOT - ACC = ~ACC
         elif instruction == "NOT":
-            if len(operands) >= 2:
-                rd, _ = self._parse_operand(operands[0])
-                rs1, mode1 = self._parse_operand(operands[1])
-                val1 = self._get_operand_value(rs1, mode1)
-                result = ~val1
-                # Ограничиваем результат 16-битным значением
-                result = result & 0xFFFF
-                self.update_flags(result)
-                self._update_register(rd, result)
-            else:
-                raise Exception(f"NOT requires 2 operands: NOT rd, rs1")
+            result = ~self.processor.accumulator
+            result = result & 0xFFFF
+            self.update_flags(result)
+            self._update_accumulator(result)
             
-        # Формат: MOV rd, rs1 - rd = rs1
-        elif instruction == "MOV":
-            if len(operands) >= 2:
-                rd, _ = self._parse_operand(operands[0])
-                rs1, mode1 = self._parse_operand(operands[1])
-                val1 = self._get_operand_value(rs1, mode1)
-                # Ограничиваем значение 16-битным диапазоном
-                val1 = val1 & 0xFFFF
-                self._update_register(rd, val1)
+        # Команды загрузки и сохранения
+        # Формат: LDA addr - ACC = память[addr] (загрузка из памяти)
+        elif instruction == "LDA":
+            if len(operands) >= 1:
+                operand, mode = self._parse_operand(operands[0])
+                # LDA всегда работает с адресом памяти
+                if mode != AddressingMode.DIRECT:
+                    raise Exception(f"LDA requires DIRECT addressing mode (memory address), got {mode}")
+                val = self._get_operand_value(operand, mode)
+                val = int(val) & 0xFFFF
+                self._update_accumulator(val)
+                print(f"DEBUG LDA: ACC={self.processor.accumulator:04X}, memory[0x{operand:04X}]={val:04X}")
             else:
-                raise Exception(f"MOV requires 2 operands: MOV rd, rs1")
+                raise Exception(f"LDA requires 1 operand: LDA addr")
             
-        # Формат: LDI rd, imm - rd = immediate
+        # Формат: STA addr - память[addr] = ACC (сохранение в память)
+        elif instruction == "STA":
+            if len(operands) >= 1:
+                operand, mode = self._parse_operand(operands[0])
+                if mode != AddressingMode.DIRECT:
+                    raise Exception(f"STA requires DIRECT addressing mode (memory address), got {mode}")
+                val = self.processor.accumulator
+                self._set_operand_value(operand, val, mode)
+                print(f"DEBUG STA: memory[0x{operand:04X}] = ACC={val:04X}")
+            else:
+                raise Exception(f"STA requires 1 operand: STA addr")
+            
+        # Формат: LDI imm - ACC = imm (непосредственная загрузка константы)
         elif instruction == "LDI":
-            if len(operands) >= 2:
-                rd, _ = self._parse_operand(operands[0])
-                imm, _ = self._parse_operand(operands[1])
-                # Ограничиваем значение 16-битным диапазоном (0x0000 - 0xFFFF)
+            if len(operands) >= 1:
+                imm, mode = self._parse_operand(operands[0])
+                # LDI всегда работает с непосредственным значением
+                if mode != AddressingMode.IMMEDIATE:
+                    raise Exception(f"LDI requires IMMEDIATE addressing mode (constant value), got {mode}")
                 imm = int(imm) & 0xFFFF
-                self._update_register(rd, imm)
-                print(f"DEBUG LDI: rd={rd}, imm={imm}, registers[{rd}]={self.processor.registers[rd]}, all_registers={self.processor.registers}")
+                self._update_accumulator(imm)
+                print(f"DEBUG LDI: ACC={self.processor.accumulator:04X}, imm={imm:04X}")
             else:
-                raise Exception(f"LDI requires 2 operands: LDI rd, imm")
+                raise Exception(f"LDI requires 1 operand: LDI imm")
             
-        # Формат: LDR rd, [address] - rd = [address]
-        elif instruction == "LDR":
-            if len(operands) >= 2:
-                rd, _ = self._parse_operand(operands[0])
-                addr, mode1 = self._parse_operand(operands[1])
-                
-                # Проверяем, что режим адресации правильный
-                if mode1 != AddressingMode.DIRECT:
-                    raise Exception(f"LDR requires DIRECT addressing mode, got {mode1}")
-                
-                # Проверяем, что адрес в пределах памяти
-                if addr < 0:
-                    print(f"ERROR LDR: Negative address 0x{addr:04X}")
-                    mem_val = 0
-                elif addr >= len(self.memory.ram):
-                    print(f"ERROR LDR: Address 0x{addr:04X} out of bounds (memory_size=0x{len(self.memory.ram):04X})")
-                    print(f"  Memory size: {len(self.memory.ram)}, required: >= 0x{addr + 1:04X}")
-                    mem_val = 0
-                else:
-                    # Читаем значение из памяти напрямую
-                    raw_val = self.memory.ram[addr]
-                    mem_val = int(raw_val) & 0xFFFF
-                    print(f"DEBUG LDR: rd={rd}, addr=0x{addr:04X}, raw_value={raw_val}, memory[0x{addr:04X}]=0x{mem_val:04X} (decimal {mem_val}), mode={mode1}")
-                    print(f"  Memory check: memory.ram exists={self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
-                
-                # Обновляем регистр
-                self._update_register(rd, mem_val)
-                print(f"DEBUG LDR AFTER: rd={rd}, registers[{rd}]=0x{self.processor.registers[rd]:04X} (decimal {self.processor.registers[rd]}), all_registers={self.processor.registers}")
-            else:
-                raise Exception(f"LDR requires 2 operands: LDR rd, [address]")
-            
-        # Формат: LDRR rd, [rs1] - rd = [rs1] (косвенно-регистровая адресация)
-        elif instruction == "LDRR":
-            if len(operands) >= 2:
-                rd, _ = self._parse_operand(operands[0])
-                rs1_str = operands[1].strip()
-                print(f"DEBUG LDRR PARSE: operands[1]='{rs1_str}'")
-                
-                # Парсим операнд [rs1] - должен быть косвенно-регистровая адресация
-                rs1, mode1 = self._parse_operand(rs1_str)
-                print(f"DEBUG LDRR PARSE: rs1={rs1}, mode1={mode1}")
-                
-                # КРИТИЧНО: Для LDRR операнд [R5] должен быть INDIRECT_REGISTER
-                # Но если режим неправильный, исправляем его
-                if mode1 != AddressingMode.INDIRECT_REGISTER:
-                    # Если операнд начинается с [ и заканчивается на ], и внутри R0-R7
-                    if rs1_str.startswith('[') and rs1_str.endswith(']'):
-                        inner = rs1_str[1:-1].strip().upper()
-                        if inner.startswith('R') and len(inner) >= 2:
-                            # Извлекаем номер регистра
-                            try:
-                                reg_num = int(inner[1:])
-                                if 0 <= reg_num <= 7:
-                                    rs1 = reg_num
-                                    mode1 = AddressingMode.INDIRECT_REGISTER
-                                    print(f"DEBUG LDRR PARSE FIX: Исправлен режим адресации, rs1={rs1}, mode1={mode1}")
-                            except ValueError:
-                                pass
-                
-                # Получаем адрес из регистра rs1
-                # КРИТИЧНО: Для LDRR операнд [R5] означает "прочитать из памяти по адресу, который находится в регистре R5"
-                # Поэтому нужно:
-                # 1. Получить значение регистра rs1 (это адрес)
-                # 2. Прочитать значение из памяти по этому адресу
-                
-                # Инициализируем переменные
-                addr_reg_value = 0
-                addr = 0
-                mem_val = 0
-                
-                # Всегда используем REGISTER режим для получения значения регистра (адреса)
-                # независимо от того, как был распарсен операнд
-                if not self.processor.registers:
-                    print(f"ERROR LDRR: Регистры не инициализированы!")
-                    mem_val = 0
-                elif rs1 < 0 or rs1 >= len(self.processor.registers):
-                    print(f"ERROR LDRR: Неверный номер регистра rs1={rs1}, registers_count={len(self.processor.registers)}")
-                    mem_val = 0
-                else:
-                    # Получаем значение регистра rs1 (это адрес)
-                    addr_reg_value = self.processor.registers[rs1]
-                    print(f"DEBUG LDRR: Получено значение регистра R{rs1}=0x{addr_reg_value:04X} (используется как адрес)")
-                    
-                    # Ограничиваем адрес 16-битным диапазоном
-                    addr = addr_reg_value & 0xFFFF
-                    
-                    # КРИТИЧНО: Проверяем память ПЕРЕД чтением
-                    print(f"DEBUG LDRR START: rs1={rs1}, rs1_value=0x{addr_reg_value:04X}, addr=0x{addr:04X}")
-                    print(f"  Memory exists: {self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
-                    if self.memory.ram and addr >= 0x0100 and addr <= 0x0107:
-                        print(f"  DEBUG LDRR: Проверка памяти задачи 1 ПЕРЕД чтением:")
-                        for check_addr in [0x0100, 0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107]:
-                            if check_addr < len(self.memory.ram):
-                                check_val = self.memory.ram[check_addr]
-                                print(f"    memory.ram[0x{check_addr:04X}] = {check_val} (0x{check_val:04X})")
-                    
-                    # Проверяем, что адрес в пределах памяти
-                    if addr < 0:
-                        print(f"ERROR LDRR: Negative address 0x{addr:04X}")
-                        mem_val = 0
-                    elif not self.memory.ram:
-                        print(f"ERROR LDRR: Память не инициализирована!")
-                        mem_val = 0
-                    elif addr >= len(self.memory.ram):
-                        print(f"ERROR LDRR: Address 0x{addr:04X} out of bounds (memory_size=0x{len(self.memory.ram):04X})")
-                        print(f"  Memory size: {len(self.memory.ram)}, required: >= 0x{addr + 1:04X}")
-                        mem_val = 0
-                    else:
-                        # Читаем значение из памяти напрямую
-                        raw_val = self.memory.ram[addr]
-                        mem_val = int(raw_val) & 0xFFFF
-                        print(f"DEBUG LDRR: rd={rd}, rs1={rs1}, rs1_value=0x{addr_reg_value:04X}, addr=0x{addr:04X}, raw_value={raw_val}, memory[0x{addr:04X}]=0x{mem_val:04X} (decimal {mem_val})")
-                        print(f"  Memory check: memory.ram exists={self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
-                        # Дополнительная проверка для задачи 1
-                        if addr >= 0x0100 and addr <= 0x0107:
-                            print(f"  DEBUG LDRR TASK1: Читаем из адреса 0x{addr:04X}, значение={mem_val} (0x{mem_val:04X})")
-                            if mem_val == 0:
-                                print(f"  WARNING LDRR TASK1: Прочитано 0 из адреса 0x{addr:04X}, но ожидалось значение элемента массива!")
-                                print(f"  WARNING LDRR TASK1: Проверяем все адреса задачи 1:")
-                                for check_addr in [0x0100, 0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107]:
-                                    if check_addr < len(self.memory.ram):
-                                        check_val = self.memory.ram[check_addr]
-                                        print(f"    memory.ram[0x{check_addr:04X}] = {check_val} (0x{check_val:04X})")
-                
-                # Обновляем регистр
-                self._update_register(rd, mem_val)
-                print(f"DEBUG LDRR AFTER: rd={rd}, registers[{rd}]=0x{self.processor.registers[rd]:04X} (decimal {self.processor.registers[rd]}), all_registers={self.processor.registers}")
-            else:
-                raise Exception(f"LDRR requires 2 operands: LDRR rd, [rs1]")
-            
-        # Формат: STR rs1, [address] - [address] = rs1
-        elif instruction == "STR":
-            if len(operands) >= 2:
-                rs1, mode_rs1 = self._parse_operand(operands[0])
-                addr, mode_addr = self._parse_operand(operands[1])
-                val1 = self._get_operand_value(rs1, mode_rs1)
-                print(f"DEBUG STR START: rs1={rs1}, mode_rs1={mode_rs1}, rs1_value=0x{val1:04X} (decimal {val1}), addr=0x{addr:04X}, mode_addr={mode_addr}")
-                print(f"  Memory before STR: exists={self.memory.ram is not None}, length={len(self.memory.ram) if self.memory.ram else 0}")
-                if self.memory.ram and addr < len(self.memory.ram):
-                    old_val = self.memory.ram[addr]
-                    print(f"  Memory[0x{addr:04X}] before STR: 0x{old_val:04X} (decimal {old_val})")
-                self._set_operand_value(addr, val1, mode_addr)
-                # Проверяем, что данные действительно записались
-                if self.memory.ram and addr < len(self.memory.ram):
-                    new_val = self.memory.ram[addr]
-                    print(f"DEBUG STR AFTER: Memory[0x{addr:04X}] after STR: 0x{new_val:04X} (decimal {new_val}), expected=0x{val1:04X}")
-                    if new_val != (val1 & 0xFFFF):
-                        print(f"ERROR STR: Данные не записались! Ожидалось 0x{val1:04X}, получено 0x{new_val:04X}")
-                else:
-                    print(f"ERROR STR: Адрес 0x{addr:04X} вне границ памяти! size={len(self.memory.ram) if self.memory.ram else 0}")
-            else:
-                raise Exception(f"STR requires 2 operands: STR rs1, [address]")
-            
-        # Формат: STRR rs1, [rd] - [rd] = rs1
-        elif instruction == "STRR":
-            if len(operands) >= 2:
-                rs1, mode_rs1 = self._parse_operand(operands[0])
-                rd, mode_rd = self._parse_operand(operands[1])
-                val1 = self._get_operand_value(rs1, mode_rs1)
-                self._set_operand_value(rd, val1, mode_rd)
-            else:
-                raise Exception(f"STRR requires 2 operands: STRR rs1, [rd]")
-            
-        # Формат: CMP rs1, rs2 - сравнить rs1 и rs2 (устанавливает флаги)
+        # Команды сравнения: операнд всегда адрес памяти
+        # Формат: CMP addr - установить флаги на основе (ACC - память[addr])
         elif instruction == "CMP":
-            if len(operands) >= 2:
-                rs1, mode1 = self._parse_operand(operands[0])
-                rs2, mode2 = self._parse_operand(operands[1])
-                val1 = self._get_operand_value(rs1, mode1)
-                val2 = self._get_operand_value(rs2, mode2)
-                result = val1 - val2
+            if len(operands) >= 1:
+                operand, mode = self._parse_operand(operands[0])
+                if mode != AddressingMode.DIRECT:
+                    raise Exception(f"CMP requires DIRECT addressing mode (memory address), got {mode}")
+                val = self._get_operand_value(operand, mode)
+                result = self.processor.accumulator - val
                 self.update_flags(result)
             else:
-                raise Exception(f"CMP requires 2 operands: CMP rs1, rs2")
+                raise Exception(f"CMP requires 1 operand: CMP addr")
         
         # Формат: JMP address - безусловный переход
         elif instruction == "JMP":
@@ -748,14 +510,9 @@ class RISCProcessor:
             # Читаем команду из памяти команд
             self._current_instruction_line = self.compiled_code[self.processor.program_counter]
             
-            # Убеждаемся, что регистры инициализированы
-            if not self.processor.registers:
-                self.processor.registers = [0] * 8
-            while len(self.processor.registers) < 8:
-                self.processor.registers.append(0)
-            
-            # Сохраняем состояние регистров ДО fetch (регистры НЕ меняются в fetch)
-            registers_before = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
+            # Сохраняем состояние аккумулятора ДО fetch (аккумулятор НЕ меняется в fetch)
+            accumulator_before = int(self.processor.accumulator) & 0xFFFF
+            registers_before = [accumulator_before]  # Для совместимости с историей
             flags_before = dict(self.processor.flags)
             pc_before = self.processor.program_counter
             
@@ -764,10 +521,7 @@ class RISCProcessor:
             self.processor.instruction_register_asm = self._current_instruction_line
             
             # Сохраняем в историю с фазой fetch
-            registers_before_final = [int(r) & 0xFFFF for r in registers_before[:8]] if registers_before else [0] * 8
-            while len(registers_before_final) < 8:
-                registers_before_final.append(0)
-            registers_before_final = registers_before_final[:8]
+            registers_before_final = registers_before if registers_before else [0]
             
             # Сохраняем состояние RAM на момент fetch
             ram_state = list(self.memory.ram) if self.memory.ram else []
@@ -804,11 +558,11 @@ class RISCProcessor:
                 'programCounter': int(pc_before),
                 'programCounter_before': int(pc_before)
             }
-            # Форматируем регистры для вывода
-            regs_str = ", ".join([f"R{i}=0x{r:04X}({r})" for i, r in enumerate(registers_before_final)])
+            # Форматируем аккумулятор для вывода
+            acc_str = f"ACC=0x{accumulator_before:04X}({accumulator_before})"
             print(f"═══════════════════════════════════════════════════════════════")
             print(f"🔵 ФАЗА FETCH | PC=0x{pc_before:04X} | Команда: {self._current_instruction_line}")
-            print(f"   Регистры: [{regs_str}]")
+            print(f"   {acc_str}")
             print(f"═══════════════════════════════════════════════════════════════")
             self.memory.history.append(history_entry)
             return True
@@ -827,22 +581,14 @@ class RISCProcessor:
             else:
                 self.processor.instruction_register = 0
             
-            # Убеждаемся, что регистры инициализированы
-            if not self.processor.registers:
-                self.processor.registers = [0] * 8
-            while len(self.processor.registers) < 8:
-                self.processor.registers.append(0)
-            
-            # Сохраняем состояние регистров ДО decode (регистры НЕ меняются в decode)
-            registers_before = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
+            # Сохраняем состояние аккумулятора ДО decode (аккумулятор НЕ меняется в decode)
+            accumulator_before = int(self.processor.accumulator) & 0xFFFF
+            registers_before = [accumulator_before]  # Для совместимости с историей
             flags_before = dict(self.processor.flags)
             pc_before = self.processor.program_counter
             
             # Сохраняем в историю с фазой decode
-            registers_before_final = [int(r) & 0xFFFF for r in registers_before[:8]] if registers_before else [0] * 8
-            while len(registers_before_final) < 8:
-                registers_before_final.append(0)
-            registers_before_final = registers_before_final[:8]
+            registers_before_final = registers_before if registers_before else [0]
             
             # Сохраняем состояние RAM на момент decode
             ram_state = list(self.memory.ram) if self.memory.ram else []
@@ -879,11 +625,11 @@ class RISCProcessor:
                 'programCounter': int(pc_before),
                 'programCounter_before': int(pc_before)
             }
-            # Форматируем регистры для вывода
-            regs_str = ", ".join([f"R{i}=0x{r:04X}({r})" for i, r in enumerate(registers_before_final)])
+            # Форматируем аккумулятор для вывода
+            acc_str = f"ACC=0x{accumulator_before:04X}({accumulator_before})"
             print(f"═══════════════════════════════════════════════════════════════")
             print(f"🟡 ФАЗА DECODE | PC=0x{pc_before:04X} | Инструкция: {self._current_instruction} | Операнды: {self._current_operands}")
-            print(f"   Регистры: [{regs_str}]")
+            print(f"   {acc_str}")
             print(f"═══════════════════════════════════════════════════════════════")
             self.memory.history.append(history_entry)
             return True
@@ -894,53 +640,41 @@ class RISCProcessor:
             operands = self._current_operands
             instruction_line = self._current_instruction_line
             
-            # Убеждаемся, что регистры инициализированы
-            if not self.processor.registers:
-                self.processor.registers = [0] * 8
-            while len(self.processor.registers) < 8:
-                self.processor.registers.append(0)
-            
-            # КРИТИЧНО: Сохраняем состояние регистров и RAM ПЕРЕД выполнением
-            registers_before = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
+            # КРИТИЧНО: Сохраняем состояние аккумулятора и RAM ПЕРЕД выполнением
+            accumulator_before = int(self.processor.accumulator) & 0xFFFF
+            registers_before = [accumulator_before]  # Для совместимости с историей
             flags_before = dict(self.processor.flags)
             pc_before = self.processor.program_counter
             ram_before_state = list(self.memory.ram) if self.memory.ram else []  # Сохраняем RAM ДО выполнения
             
-            # Форматируем регистры ДО выполнения
-            regs_before_str = ", ".join([f"R{i}=0x{r:04X}({r})" for i, r in enumerate(registers_before)])
+            # Форматируем аккумулятор ДО выполнения
+            acc_before_str = f"ACC=0x{accumulator_before:04X}({accumulator_before})"
             print(f"═══════════════════════════════════════════════════════════════")
             print(f"🟢 ФАЗА EXECUTE | PC=0x{pc_before:04X} | Инструкция: {instruction} | Операнды: {operands}")
-            print(f"   Регистры ДО: [{regs_before_str}]")
+            print(f"   {acc_before_str}")
             
             # Выполняем инструкцию
             try:
                 self.execute_instruction(instruction, operands)
                 self.processor.cycles += 1
                 
-                # КРИТИЧНО: Сохраняем состояние регистров и RAM ПОСЛЕ выполнения
-                if not self.processor.registers:
-                    self.processor.registers = [0] * 8
-                while len(self.processor.registers) < 8:
-                    self.processor.registers.append(0)
-                registers_after = [int(r) & 0xFFFF for r in self.processor.registers[:8]]
+                # КРИТИЧНО: Сохраняем состояние аккумулятора и RAM ПОСЛЕ выполнения
+                accumulator_after = int(self.processor.accumulator) & 0xFFFF
+                registers_after = [accumulator_after]  # Для совместимости с историей
                 flags_after = dict(self.processor.flags)
                 pc_after = self.processor.program_counter
                 ram_after_state = list(self.memory.ram) if self.memory.ram else []  # Сохраняем RAM ПОСЛЕ выполнения
                 
-                # Форматируем регистры ПОСЛЕ выполнения
-                regs_after_str = ", ".join([f"R{i}=0x{r:04X}({r})" for i, r in enumerate(registers_after)])
+                # Форматируем аккумулятор ПОСЛЕ выполнения
+                acc_after_str = f"ACC=0x{accumulator_after:04X}({accumulator_after})"
                 
-                # Проверяем, изменились ли регистры
-                registers_changed = registers_before != registers_after
-                if registers_changed:
-                    changed_regs = []
-                    for i in range(8):
-                        if registers_before[i] != registers_after[i]:
-                            changed_regs.append(f"R{i}: 0x{registers_before[i]:04X} → 0x{registers_after[i]:04X}")
-                    print(f"   Регистры ПОСЛЕ: [{regs_after_str}]")
-                    print(f"   ⚠️ ИЗМЕНЕНЫ: {', '.join(changed_regs)}")
+                # Проверяем, изменился ли аккумулятор
+                accumulator_changed = accumulator_before != accumulator_after
+                if accumulator_changed:
+                    print(f"   {acc_after_str}")
+                    print(f"   ⚠️ ИЗМЕНЕН: ACC: 0x{accumulator_before:04X} → 0x{accumulator_after:04X}")
                 else:
-                    print(f"   Регистры ПОСЛЕ: [{regs_after_str}] (не изменились)")
+                    print(f"   {acc_after_str} (не изменился)")
                 print(f"   PC: 0x{pc_before:04X} → 0x{pc_after:04X}")
                 print(f"═══════════════════════════════════════════════════════════════")
                 
@@ -957,14 +691,8 @@ class RISCProcessor:
                         self.processor.instruction_register = 0
                 
                 # Сохраняем состояние в историю с фазой execute
-                registers_before_final = [int(r) & 0xFFFF for r in registers_before[:8]] if registers_before else [0] * 8
-                registers_after_final = [int(r) & 0xFFFF for r in registers_after[:8]] if registers_after else [0] * 8
-                while len(registers_before_final) < 8:
-                    registers_before_final.append(0)
-                while len(registers_after_final) < 8:
-                    registers_after_final.append(0)
-                registers_before_final = registers_before_final[:8]
-                registers_after_final = registers_after_final[:8]
+                registers_before_final = registers_before if registers_before else [0]
+                registers_after_final = registers_after if registers_after else [0]
                 
                 # ram_before_state и ram_after_state уже сохранены выше
                 
@@ -1035,8 +763,8 @@ class RISCProcessor:
         self._current_instruction = None
         self._current_operands = None
         
-        # Сбрасываем регистры в начальное состояние (все нули)
-        self.processor.registers = [0] * 8
+        # Сбрасываем аккумулятор в начальное состояние
+        self.processor.accumulator = 0
         # Сбрасываем флаги
         self.processor.flags = {
             "zero": False,
@@ -1083,16 +811,13 @@ class RISCProcessor:
             history_entry = {}
             for key, value in entry.items():
                 if key in ['registers_before', 'registers_after', 'registers']:
-                    # Преобразуем регистры в список целых чисел
+                    # Преобразуем аккумулятор в список целых чисел (для совместимости)
                     if isinstance(value, list) and len(value) > 0:
                         # Преобразуем каждый элемент в int и ограничиваем 16-битным диапазоном
                         regs = [int(r) & 0xFFFF for r in value]
-                        # Гарантируем, что у нас есть ровно 8 регистров
-                        while len(regs) < 8:
-                            regs.append(0)
-                        history_entry[key] = regs[:8]
+                        history_entry[key] = regs
                     else:
-                        history_entry[key] = [0] * 8
+                        history_entry[key] = [0]
                 elif key in ['flags_before', 'flags_after', 'flags']:
                     # Преобразуем флаги в словарь с булевыми значениями
                     if isinstance(value, dict):
@@ -1115,7 +840,8 @@ class RISCProcessor:
         
         return {
             "processor": {
-                "registers": [int(r) & 0xFFFF for r in self.processor.registers] if self.processor.registers else [0] * 8,
+                "accumulator": int(self.processor.accumulator) & 0xFFFF,
+                "registers": [int(self.processor.accumulator) & 0xFFFF],  # Для совместимости с frontend
                 "program_counter": self.processor.program_counter,
                 "instruction_register": self.processor.instruction_register,
                 "instruction_register_asm": self.processor.instruction_register_asm,

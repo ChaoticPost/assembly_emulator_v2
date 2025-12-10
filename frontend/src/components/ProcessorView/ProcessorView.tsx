@@ -23,31 +23,14 @@ export const ProcessorView: React.FC = () => {
     });
   }, [processor]);
 
-  // Убеждаемся, что регистры всегда инициализированы
-  // Используем useMemo для предотвращения лишних пересчетов
-  const displayRegisters = useMemo(() => {
-    // Получаем регистры из состояния процессора
-    let regs = processor.registers;
-
-    // Проверяем, что регистры существуют и это массив
-    if (!regs || !Array.isArray(regs)) {
-      console.warn('ProcessorView: регистры не инициализированы, используем нули');
-      return [0, 0, 0, 0, 0, 0, 0, 0];
-    }
-
-    // Гарантируем, что у нас есть ровно 8 регистров
-    const result = [];
-    for (let i = 0; i < 8; i++) {
-      const value = regs[i];
-      // Если значение undefined или null, используем 0
-      result[i] = (value !== undefined && value !== null) ? value : 0;
-    }
-
-    // Отладочная информация
-    console.log('ProcessorView: displayRegisters =', result);
-
-    return result;
-  }, [processor.registers]);
+  // Получаем аккумулятор из состояния процессора
+  const accumulator = useMemo(() => {
+    // Используем accumulator если доступен, иначе берем из registers[0] для совместимости
+    const acc = processor.accumulator !== undefined
+      ? processor.accumulator
+      : (processor.registers && processor.registers[0] !== undefined ? processor.registers[0] : 0);
+    return acc;
+  }, [processor.accumulator, processor.registers]);
 
   // Функция форматирования значений для отображения
   const formatValue = (value: number | undefined | null, isHex: boolean = false) => {
@@ -145,15 +128,15 @@ export const ProcessorView: React.FC = () => {
     let size: number | null = null;
     let elements: number[] = [];
 
-    if (state.memory.ram && state.memory.ram.length > 0x0107) {
-      // Читаем размер массива из памяти по адресу 0x0100
-      const sizeValue = state.memory.ram[0x0100];
+    if (state.memory.ram && state.memory.ram.length > 0x0307) {
+      // Читаем размер массива из памяти по адресу 0x0300
+      const sizeValue = state.memory.ram[0x0300];
       if (sizeValue !== undefined && sizeValue !== null && sizeValue > 0 && sizeValue <= 15) {
         size = sizeValue;
-        // Читаем элементы массива из памяти по адресам 0x0101-0x0107
+        // Читаем элементы массива из памяти по адресам 0x0301-0x0307
         elements = [];
         for (let i = 1; i <= size; i++) {
-          const addr = 0x0100 + i;
+          const addr = 0x0300 + i;
           if (addr < state.memory.ram.length) {
             const value = state.memory.ram[addr];
             if (value !== undefined && value !== null) {
@@ -186,61 +169,30 @@ export const ProcessorView: React.FC = () => {
       return null;
     }
 
-    const actualSum = state.processor.registers[0] || 0;
+    const actualMax = accumulator || 0;
 
-    // Формируем строку: элемент1+элемент2+... = сумма (hex)
-    const elementsStr = elements.join('+');
-    const hexSum = formatValue(actualSum, true);
+    // Формируем строку: максимум из [элемент1, элемент2, ...] = максимум (hex)
+    const elementsStr = elements.join(', ');
+    const hexMax = formatValue(actualMax, true);
 
-    return `${elementsStr} = ${actualSum} (${hexSum})`;
-  }, [taskTestData, current_task, state.processor.registers[0], state.memory.ram]);
+    return `Максимум из [${elementsStr}] = ${actualMax} (${hexMax})`;
+  }, [taskTestData, current_task, accumulator, state.memory.ram]);
 
   return (
     <div className="processor-view-container">
       <div className="processor-header">
-        <h5 className="processor-title">Процессор RISC</h5>
+        <h5 className="processor-title">Процессор</h5>
       </div>
 
       <div className="processor-grid-layout">
-        {/* Регистры общего назначения */}
-        <div className="processor-section registers-section" style={{ display: 'flex', visibility: 'visible', opacity: 1 }}>
-          <div className="section-content" style={{ display: 'block', visibility: 'visible', opacity: 1 }}>
+        {/* Аккумулятор */}
+        <div className="processor-section special-registers-section">
+          <div className="section-content">
             <label className="section-label">
-              Регистры общего назначения (R0-R7)
+              Аккумулятор (ACC)
             </label>
-            <div className="registers-grid" style={{ display: 'grid', visibility: 'visible', opacity: 1 }}>
-              {/* Гарантируем отображение всех 8 регистров R0-R7 */}
-              {Array.from({ length: 8 }, (_, index) => {
-                // Получаем значение регистра из displayRegisters
-                const registerValue = displayRegisters[index] !== undefined && displayRegisters[index] !== null
-                  ? displayRegisters[index]
-                  : 0;
-
-                // Форматируем значение в hex
-                const hexValue = formatValue(registerValue, true);
-
-                return (
-                  <div
-                    key={`register-R${index}`}
-                    className="register-item"
-                    style={{
-                      display: 'flex',
-                      visibility: 'visible',
-                      opacity: 1,
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)'
-                    }}
-                    data-register-index={index}
-                    data-register-value={registerValue}
-                  >
-                    <div className="register-label">
-                      R{index} {index === 0 && <span className="register-accumulator">(аккумулятор)</span>}
-                    </div>
-                    <div className="register-value">
-                      {hexValue}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="special-register-value pc-value">
+              {formatValue(accumulator, true)}
             </div>
           </div>
         </div>
@@ -295,13 +247,13 @@ export const ProcessorView: React.FC = () => {
               <>
                 <div className="task-result">
                   <div className="task-result-value">
-                    {formatValue(state.processor.registers[0] || 0, true)}
+                    {formatValue(accumulator || 0, true)}
                   </div>
                   <div className="task-result-title">
-                    Сумма элементов массива
+                    Максимальный элемент массива
                   </div>
                   <div className="task-result-desc">
-                    {formatTask1Result || `Результат: ${formatValue(state.processor.registers[0], true)} (${state.processor.registers[0] || 0})`}
+                    {formatTask1Result || `Результат: ${formatValue(accumulator, true)} (${accumulator || 0})`}
                   </div>
                 </div>
                 <div className="flags-grid" style={{ marginTop: '1.5rem' }}>
@@ -354,20 +306,13 @@ export const ProcessorView: React.FC = () => {
               <>
                 <div className="task-result">
                   <div className="task-result-value">
-                    {(() => {
-                      // Для задачи 2 результат находится в R0 (аккумулятор)
-                      const r0Value = displayRegisters[0] || 0;
-                      return `0x${r0Value.toString(16).toUpperCase().padStart(4, '0')}`;
-                    })()}
+                    {formatValue(accumulator || 0, true)}
                   </div>
                   <div className="task-result-title">
                     Свертка двух массивов
                   </div>
                   <div className="task-result-desc">
-                    {(() => {
-                      const r0Value = displayRegisters[0] || 0;
-                      return `${r0Value} в десятичной системе`;
-                    })()}
+                    {`${accumulator || 0} в десятичной системе`}
                   </div>
                 </div>
                 <div className="flags-grid" style={{ marginTop: '1.5rem' }}>

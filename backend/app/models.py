@@ -15,9 +15,9 @@ class AddressingMode(str, Enum):
     INDIRECT_REGISTER = "indirect_register"  # Косвенно-регистровая адресация
 
 class ProcessorState(BaseModel):
-    """Состояние процессора для двухадресной RISC архитектуры"""
-    # Регистры общего назначения R0-R7 (R0 - аккумулятор)
-    registers: List[int] = [0] * 8  # R0-R7, где R0 - аккумулятор
+    """Состояние процессора для одноадресной архитектуры Фон-Неймана"""
+    # Аккумулятор - единственный регистр для операций
+    accumulator: int = 0  # ACC - аккумулятор
     
     # Специальные регистры
     program_counter: int = 0        # PC - счетчик команд
@@ -82,16 +82,12 @@ class TaskData(BaseModel):
     result_address: int = 0x1100
 
 class InstructionField(BaseModel):
-    """Поля команды для отображения"""
+    """Поля команды для отображения (одноадресная архитектура)"""
     opcode: int
     opcode_bits: str
-    rd: int = 0          # Регистр назначения
-    rd_bits: str = ""
-    rs1: int = 0         # Первый исходный регистр
-    rs1_bits: str = ""
-    rs2: int = 0         # Второй исходный регистр  
-    rs2_bits: str = ""
+    operand: int = 0     # Операнд (адрес или значение)
+    operand_bits: str = ""
     immediate: int = 0   # Непосредственное значение
     immediate_bits: str = ""
     addressing_mode: AddressingMode = AddressingMode.REGISTER
-    instruction_type: str = ""  # Тип команды (R, I, J)
+    instruction_type: str = ""  # Тип команды (I, J, S)

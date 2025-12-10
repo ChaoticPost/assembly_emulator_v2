@@ -10,7 +10,8 @@ export interface Command {
 }
 
 export interface ProcessorState {
-    registers: number[];           // R0-R7 регистры общего назначения
+    accumulator: number;           // ACC - аккумулятор (единственный регистр)
+    registers: number[];           // Для совместимости (содержит [accumulator])
     program_counter: number;       // PC - счетчик команд
     instruction_register: number;  // IR - регистр команд
     instruction_register_asm: string; // Ассемблерное представление команды
@@ -65,12 +66,8 @@ export interface TaskInfo {
 export interface InstructionField {
     opcode: number;
     opcode_bits: string;
-    rd: number;
-    rd_bits: string;
-    rs1: number;
-    rs1_bits: string;
-    rs2: number;
-    rs2_bits: string;
+    operand: number;
+    operand_bits: string;
     immediate: number;
     immediate_bits: string;
     addressing_mode: string;

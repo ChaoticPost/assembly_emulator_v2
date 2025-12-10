@@ -7,7 +7,7 @@ interface TaskListProps {
 }
 
 const tasks = [
-  { id: 1, title: 'Сумма элементов массива' },
+  { id: 1, title: 'Поиск максимума в массиве' },
   { id: 2, title: 'Свертка двух массивов' }
 ];
 

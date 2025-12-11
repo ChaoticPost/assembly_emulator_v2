@@ -135,25 +135,26 @@ export const CommandEditor: React.FC = () => {
 ; Формат массива: [размер, элемент1, элемент2, ..., элементN]
 ; Массив: [7, 10, 20, 30, 40, 50, 60, 70] (размер=7, элементы: 10-70)
 ; Ожидаемый результат: 70 (максимальный элемент)
-; Примечание: массив должен быть предварительно загружен в память начиная с адреса 0x0300
+; Примечание: массив должен быть предварительно загружен в память начиная с адреса 0x0100
+; Алгоритм поддерживает массивы размером от 1 до 15 элементов
 
 ; Подготовка констант
 LDI 1              ; ACC = 1
 STA 0x0400         ; константа 1 в 0x0400
 
-; Загрузить размер массива N из памяти[0x0300]
-LDA 0x0300         ; ACC = размер массива
+; Загрузить размер массива N из памяти[0x0100]
+LDA 0x0100         ; ACC = размер массива
 STA 0x0410         ; сохранить размер во временную переменную
 
 ; Загрузить первый элемент в ACC как начальный максимум
-LDA 0x0301         ; ACC = первый элемент (начальный максимум)
+LDA 0x0101         ; ACC = первый элемент (начальный максимум)
 STA 0x0411         ; сохранить максимум
 
 ; Инициализировать индекс i = 2
 LDI 2              ; ACC = 2
 STA 0x0412         ; сохранить индекс
 
-; Константы для сравнения индексов
+; Константы для сравнения индексов (поддержка массивов до 15 элементов)
 LDI 2
 STA 0x0420
 LDI 3
@@ -168,6 +169,20 @@ LDI 7
 STA 0x0425
 LDI 8
 STA 0x0426
+LDI 9
+STA 0x0427
+LDI 10
+STA 0x0428
+LDI 11
+STA 0x0429
+LDI 12
+STA 0x042A
+LDI 13
+STA 0x042B
+LDI 14
+STA 0x042C
+LDI 15
+STA 0x042D
 
 ; Основной цикл
 LOOP_START:
@@ -179,7 +194,7 @@ LDA 0x0412         ; ACC = индекс
 CMP 0x0430         ; сравнить индекс с (размер + 1)
 JZ LOOP_END        ; если равны, выйти
 
-; Таблица переходов на основе индекса
+; Таблица переходов на основе индекса (поддержка индексов 2-15)
 LDA 0x0412
 CMP 0x0420
 JZ LOAD_ELEM_2
@@ -201,54 +216,107 @@ JZ LOAD_ELEM_7
 LDA 0x0412
 CMP 0x0426
 JZ LOAD_ELEM_8
+LDA 0x0412
+CMP 0x0427
+JZ LOAD_ELEM_9
+LDA 0x0412
+CMP 0x0428
+JZ LOAD_ELEM_10
+LDA 0x0412
+CMP 0x0429
+JZ LOAD_ELEM_11
+LDA 0x0412
+CMP 0x042A
+JZ LOAD_ELEM_12
+LDA 0x0412
+CMP 0x042B
+JZ LOAD_ELEM_13
+LDA 0x0412
+CMP 0x042C
+JZ LOAD_ELEM_14
+LDA 0x0412
+CMP 0x042D
+JZ LOAD_ELEM_15
 JMP INCREMENT_INDEX
 
 LOAD_ELEM_2:
-LDA 0x0302
+LDA 0x0102
 JMP COMPARE_MAX
 
 LOAD_ELEM_3:
-LDA 0x0303
+LDA 0x0103
 JMP COMPARE_MAX
 
 LOAD_ELEM_4:
-LDA 0x0304
+LDA 0x0104
 JMP COMPARE_MAX
 
 LOAD_ELEM_5:
-LDA 0x0305
+LDA 0x0105
 JMP COMPARE_MAX
 
 LOAD_ELEM_6:
-LDA 0x0306
+LDA 0x0106
 JMP COMPARE_MAX
 
 LOAD_ELEM_7:
-LDA 0x0307
+LDA 0x0107
 JMP COMPARE_MAX
 
 LOAD_ELEM_8:
-LDA 0x0308
+LDA 0x0108
+JMP COMPARE_MAX
+
+LOAD_ELEM_9:
+LDA 0x0109
+JMP COMPARE_MAX
+
+LOAD_ELEM_10:
+LDA 0x010A
+JMP COMPARE_MAX
+
+LOAD_ELEM_11:
+LDA 0x010B
+JMP COMPARE_MAX
+
+LOAD_ELEM_12:
+LDA 0x010C
+JMP COMPARE_MAX
+
+LOAD_ELEM_13:
+LDA 0x010D
+JMP COMPARE_MAX
+
+LOAD_ELEM_14:
+LDA 0x010E
+JMP COMPARE_MAX
+
+LOAD_ELEM_15:
+LDA 0x010F
 JMP COMPARE_MAX
 
 ; Сравнить элемент с максимумом
 COMPARE_MAX:
-STA 0x0440         ; сохранить текущий элемент
+STA 0x0440         ; сохранить текущий элемент во временную переменную
 LDA 0x0411         ; ACC = максимум
-SUB 0x0440         ; ACC = максимум - элемент
-JN UPDATE_MAX      ; если отрицательный, обновить
+CMP 0x0440         ; сравнить максимум с элементом (устанавливает флаги, не изменяет ACC)
+; Для беззнаковых чисел: CMP выполняет вычитание (максимум - элемент) и устанавливает флаги
+; Если максимум < элемент, то при вычитании будет заем → C=1 (Carry установлен)
+; Если максимум >= элемент, то заема не будет → C=0 (Carry не установлен)
+JC UPDATE_MAX      ; если был заем (максимум < элемент, т.е. элемент > максимума), обновить
 JMP INCREMENT_INDEX
 
 UPDATE_MAX:
 LDA 0x0440         ; ACC = новый максимум
-STA 0x0411         ; сохранить
+STA 0x0411         ; сохранить в переменную максимума
+JMP INCREMENT_INDEX ; перейти к увеличению индекса
 
 INCREMENT_INDEX:
 LDA 0x0412         ; ACC = индекс
 ADD 0x0400         ; ACC = индекс + 1
-STA 0x0412         ; сохранить
+STA 0x0412         ; сохранить новый индекс
 
-JMP LOOP_START
+JMP LOOP_START     ; переход к началу цикла
 
 LOOP_END:
 LDA 0x0411         ; ACC = максимум
@@ -369,31 +437,32 @@ HALT`
     const template = `; Поиск максимума в массиве
 ; Массив: [7, 15, 20, 30, 40, 50, 60, 70] (размер=7, элементы: 15-70)
 ; Ожидаемый результат: 70 (максимальный элемент)
+; Алгоритм поддерживает массивы размером от 1 до 15 элементов
 
-; Инициализация массива (используем адреса с 0x0300 вместо 0x0100)
+; Инициализация массива (массив хранится в памяти начиная с адреса 0x0100)
 LDI 7              ; ACC = 7 (размер массива)
-STA 0x0300         ; сохранить размер по адресу 0x0300
+STA 0x0100         ; сохранить размер по адресу 0x0100
 
 LDI 15             ; ACC = 15 (элемент 1)
-STA 0x0301         ; адрес 0x0301
+STA 0x0101         ; адрес 0x0101
 
 LDI 20             ; ACC = 20 (элемент 2)
-STA 0x0302         ; адрес 0x0302
+STA 0x0102         ; адрес 0x0102
 
 LDI 30             ; ACC = 30 (элемент 3)
-STA 0x0303         ; адрес 0x0303
+STA 0x0103         ; адрес 0x0103
 
 LDI 40             ; ACC = 40 (элемент 4)
-STA 0x0304         ; адрес 0x0304
+STA 0x0104         ; адрес 0x0104
 
 LDI 50             ; ACC = 50 (элемент 5)
-STA 0x0305         ; адрес 0x0305
+STA 0x0105         ; адрес 0x0105
 
 LDI 60             ; ACC = 60 (элемент 6)
-STA 0x0306         ; адрес 0x0306
+STA 0x0106         ; адрес 0x0106
 
 LDI 70             ; ACC = 70 (элемент 7)
-STA 0x0307         ; адрес 0x0307
+STA 0x0107         ; адрес 0x0107
 
 ; Основная программа поиска максимума
 ; Подготовка констант
@@ -401,18 +470,18 @@ LDI 1              ; ACC = 1
 STA 0x0400         ; константа 1 в 0x0400
 
 ; Загрузить размер массива N
-LDA 0x0300         ; ACC = размер массива
+LDA 0x0100         ; ACC = размер массива
 STA 0x0410         ; сохранить размер во временную переменную
 
 ; Загрузить первый элемент как начальный максимум
-LDA 0x0301         ; ACC = первый элемент
+LDA 0x0101         ; ACC = первый элемент
 STA 0x0411         ; сохранить максимум
 
 ; Инициализировать индекс i = 2
 LDI 2              ; ACC = 2
 STA 0x0412         ; сохранить индекс
 
-; Константы для сравнения индексов
+; Константы для сравнения индексов (поддержка массивов до 15 элементов)
 LDI 2
 STA 0x0420
 LDI 3
@@ -427,6 +496,20 @@ LDI 7
 STA 0x0425
 LDI 8
 STA 0x0426
+LDI 9
+STA 0x0427
+LDI 10
+STA 0x0428
+LDI 11
+STA 0x0429
+LDI 12
+STA 0x042A
+LDI 13
+STA 0x042B
+LDI 14
+STA 0x042C
+LDI 15
+STA 0x042D
 
 ; Основной цикл
 LOOP_START:
@@ -438,7 +521,7 @@ LDA 0x0412         ; ACC = индекс
 CMP 0x0430         ; сравнить индекс с (размер + 1)
 JZ LOOP_END        ; если равны, выйти
 
-; Таблица переходов на основе индекса
+; Таблица переходов на основе индекса (поддержка индексов 2-15)
 LDA 0x0412
 CMP 0x0420
 JZ LOAD_ELEM_2
@@ -460,54 +543,107 @@ JZ LOAD_ELEM_7
 LDA 0x0412
 CMP 0x0426
 JZ LOAD_ELEM_8
+LDA 0x0412
+CMP 0x0427
+JZ LOAD_ELEM_9
+LDA 0x0412
+CMP 0x0428
+JZ LOAD_ELEM_10
+LDA 0x0412
+CMP 0x0429
+JZ LOAD_ELEM_11
+LDA 0x0412
+CMP 0x042A
+JZ LOAD_ELEM_12
+LDA 0x0412
+CMP 0x042B
+JZ LOAD_ELEM_13
+LDA 0x0412
+CMP 0x042C
+JZ LOAD_ELEM_14
+LDA 0x0412
+CMP 0x042D
+JZ LOAD_ELEM_15
 JMP INCREMENT_INDEX
 
 LOAD_ELEM_2:
-LDA 0x0302
+LDA 0x0102
 JMP COMPARE_MAX
 
 LOAD_ELEM_3:
-LDA 0x0303
+LDA 0x0103
 JMP COMPARE_MAX
 
 LOAD_ELEM_4:
-LDA 0x0304
+LDA 0x0104
 JMP COMPARE_MAX
 
 LOAD_ELEM_5:
-LDA 0x0305
+LDA 0x0105
 JMP COMPARE_MAX
 
 LOAD_ELEM_6:
-LDA 0x0306
+LDA 0x0106
 JMP COMPARE_MAX
 
 LOAD_ELEM_7:
-LDA 0x0307
+LDA 0x0107
 JMP COMPARE_MAX
 
 LOAD_ELEM_8:
-LDA 0x0308
+LDA 0x0108
+JMP COMPARE_MAX
+
+LOAD_ELEM_9:
+LDA 0x0109
+JMP COMPARE_MAX
+
+LOAD_ELEM_10:
+LDA 0x010A
+JMP COMPARE_MAX
+
+LOAD_ELEM_11:
+LDA 0x010B
+JMP COMPARE_MAX
+
+LOAD_ELEM_12:
+LDA 0x010C
+JMP COMPARE_MAX
+
+LOAD_ELEM_13:
+LDA 0x010D
+JMP COMPARE_MAX
+
+LOAD_ELEM_14:
+LDA 0x010E
+JMP COMPARE_MAX
+
+LOAD_ELEM_15:
+LDA 0x010F
 JMP COMPARE_MAX
 
 ; Сравнить элемент с максимумом
 COMPARE_MAX:
-STA 0x0440         ; сохранить текущий элемент
+STA 0x0440         ; сохранить текущий элемент во временную переменную
 LDA 0x0411         ; ACC = максимум
-SUB 0x0440         ; ACC = максимум - элемент
-JN UPDATE_MAX      ; если отрицательный, обновить
+CMP 0x0440         ; сравнить максимум с элементом (устанавливает флаги, не изменяет ACC)
+; Для беззнаковых чисел: CMP выполняет вычитание (максимум - элемент) и устанавливает флаги
+; Если максимум < элемент, то при вычитании будет заем → C=1 (Carry установлен)
+; Если максимум >= элемент, то заема не будет → C=0 (Carry не установлен)
+JC UPDATE_MAX      ; если был заем (максимум < элемент, т.е. элемент > максимума), обновить
 JMP INCREMENT_INDEX
 
 UPDATE_MAX:
 LDA 0x0440         ; ACC = новый максимум
-STA 0x0411         ; сохранить
+STA 0x0411         ; сохранить в переменную максимума
+JMP INCREMENT_INDEX ; перейти к увеличению индекса
 
 INCREMENT_INDEX:
 LDA 0x0412         ; ACC = индекс
 ADD 0x0400         ; ACC = индекс + 1
-STA 0x0412         ; сохранить
+STA 0x0412         ; сохранить новый индекс
 
-JMP LOOP_START
+JMP LOOP_START     ; переход к началу цикла
 
 LOOP_END:
 LDA 0x0411         ; ACC = максимум

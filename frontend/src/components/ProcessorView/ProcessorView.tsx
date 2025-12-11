@@ -128,15 +128,15 @@ export const ProcessorView: React.FC = () => {
     let size: number | null = null;
     let elements: number[] = [];
 
-    if (state.memory.ram && state.memory.ram.length > 0x0307) {
-      // Читаем размер массива из памяти по адресу 0x0300
-      const sizeValue = state.memory.ram[0x0300];
+    if (state.memory.ram && state.memory.ram.length > 0x010F) {
+      // Читаем размер массива из памяти по адресу 0x0100
+      const sizeValue = state.memory.ram[0x0100];
       if (sizeValue !== undefined && sizeValue !== null && sizeValue > 0 && sizeValue <= 15) {
         size = sizeValue;
-        // Читаем элементы массива из памяти по адресам 0x0301-0x0307
+        // Читаем элементы массива из памяти по адресам 0x0101-0x010F
         elements = [];
         for (let i = 1; i <= size; i++) {
-          const addr = 0x0300 + i;
+          const addr = 0x0100 + i;
           if (addr < state.memory.ram.length) {
             const value = state.memory.ram[addr];
             if (value !== undefined && value !== null) {

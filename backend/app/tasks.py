@@ -35,43 +35,193 @@ class TaskManager:
         return list(self.tasks.values())
     
     def _get_sum_array_program(self) -> str:
-        """Программа для суммы элементов массива"""
+        """Программа для поиска максимума в массиве"""
         return """
-; Программа для вычисления суммы элементов массива
+; Поиск максимума в массиве
 ; Формат массива: [размер, элемент1, элемент2, ..., элементN]
 ; Массив: [7, 10, 20, 30, 40, 50, 60, 70] (размер=7, элементы: 10-70)
-; Ожидаемый результат: 280
+; Ожидаемый результат: 70 (максимальный элемент)
+; Алгоритм поддерживает массивы размером от 1 до 15 элементов
 
-; Инициализация
-LDI R0, 0          ; R0 = 0 (аккумулятор для суммы)
-LDI R1, 1          ; R1 = 1 (индекс, начинается с 1, так как [0x0100] - размер)
-LDI R2, 0x0100     ; R2 = базовый адрес массива
+; Подготовка констант
+LDI 1              ; ACC = 1
+STA 0x0400         ; константа 1 в 0x0400
 
-; Загрузка размера массива
-LDR R3, [0x0100]   ; R3 = размер массива (из [0x0100])
+; Загрузить размер массива N из памяти[0x0100]
+LDA 0x0100         ; ACC = размер массива
+STA 0x0410         ; сохранить размер во временную переменную
+
+; Загрузить первый элемент в ACC как начальный максимум
+LDA 0x0101         ; ACC = первый элемент (начальный максимум)
+STA 0x0411         ; сохранить максимум
+
+; Инициализировать индекс i = 2
+LDI 2              ; ACC = 2
+STA 0x0412         ; сохранить индекс
+
+; Константы для сравнения индексов (поддержка массивов до 15 элементов)
+LDI 2
+STA 0x0420
+LDI 3
+STA 0x0421
+LDI 4
+STA 0x0422
+LDI 5
+STA 0x0423
+LDI 6
+STA 0x0424
+LDI 7
+STA 0x0425
+LDI 8
+STA 0x0426
+LDI 9
+STA 0x0427
+LDI 10
+STA 0x0428
+LDI 11
+STA 0x0429
+LDI 12
+STA 0x042A
+LDI 13
+STA 0x042B
+LDI 14
+STA 0x042C
+LDI 15
+STA 0x042D
 
 ; Основной цикл
 LOOP_START:
-; Сравниваем индекс с (размер + 1)
-; Если индекс == размер + 1, значит обработали все элементы, выходим
-ADD R4, R3, 1      ; R4 = размер + 1
-CMP R1, R4         ; Сравнить индекс с (размер + 1)
-JZ LOOP_END        ; Если индекс == размер + 1, выйти из цикла
+; Проверка условия выхода: индекс > размер
+LDA 0x0410         ; ACC = размер
+ADD 0x0400         ; ACC = размер + 1
+STA 0x0430         ; сохранить (размер + 1)
+LDA 0x0412         ; ACC = индекс
+CMP 0x0430         ; сравнить индекс с (размер + 1)
+JZ LOOP_END        ; если равны, выйти
 
-; Вычисляем адрес текущего элемента: базовый_адрес + индекс
-ADD R5, R2, R1     ; R5 = 0x0100 + индекс (адрес элемента)
-LDRR R6, [R5]      ; R6 = [R5] (значение элемента массива)
+; Таблица переходов на основе индекса (поддержка индексов 2-15)
+LDA 0x0412
+CMP 0x0420
+JZ LOAD_ELEM_2
+LDA 0x0412
+CMP 0x0421
+JZ LOAD_ELEM_3
+LDA 0x0412
+CMP 0x0422
+JZ LOAD_ELEM_4
+LDA 0x0412
+CMP 0x0423
+JZ LOAD_ELEM_5
+LDA 0x0412
+CMP 0x0424
+JZ LOAD_ELEM_6
+LDA 0x0412
+CMP 0x0425
+JZ LOAD_ELEM_7
+LDA 0x0412
+CMP 0x0426
+JZ LOAD_ELEM_8
+LDA 0x0412
+CMP 0x0427
+JZ LOAD_ELEM_9
+LDA 0x0412
+CMP 0x0428
+JZ LOAD_ELEM_10
+LDA 0x0412
+CMP 0x0429
+JZ LOAD_ELEM_11
+LDA 0x0412
+CMP 0x042A
+JZ LOAD_ELEM_12
+LDA 0x0412
+CMP 0x042B
+JZ LOAD_ELEM_13
+LDA 0x0412
+CMP 0x042C
+JZ LOAD_ELEM_14
+LDA 0x0412
+CMP 0x042D
+JZ LOAD_ELEM_15
+JMP INCREMENT_INDEX
 
-; Добавляем элемент к сумме
-ADD R0, R0, R6     ; R0 = R0 + R6 (сумма)
+LOAD_ELEM_2:
+LDA 0x0102
+JMP COMPARE_MAX
 
-; Увеличиваем индекс
-ADD R1, R1, 1      ; R1 = R1 + 1
+LOAD_ELEM_3:
+LDA 0x0103
+JMP COMPARE_MAX
 
-JMP LOOP_START     ; Переход к началу цикла
+LOAD_ELEM_4:
+LDA 0x0104
+JMP COMPARE_MAX
+
+LOAD_ELEM_5:
+LDA 0x0105
+JMP COMPARE_MAX
+
+LOAD_ELEM_6:
+LDA 0x0106
+JMP COMPARE_MAX
+
+LOAD_ELEM_7:
+LDA 0x0107
+JMP COMPARE_MAX
+
+LOAD_ELEM_8:
+LDA 0x0108
+JMP COMPARE_MAX
+
+LOAD_ELEM_9:
+LDA 0x0109
+JMP COMPARE_MAX
+
+LOAD_ELEM_10:
+LDA 0x010A
+JMP COMPARE_MAX
+
+LOAD_ELEM_11:
+LDA 0x010B
+JMP COMPARE_MAX
+
+LOAD_ELEM_12:
+LDA 0x010C
+JMP COMPARE_MAX
+
+LOAD_ELEM_13:
+LDA 0x010D
+JMP COMPARE_MAX
+
+LOAD_ELEM_14:
+LDA 0x010E
+JMP COMPARE_MAX
+
+LOAD_ELEM_15:
+LDA 0x010F
+JMP COMPARE_MAX
+
+; Сравнить элемент с максимумом
+COMPARE_MAX:
+STA 0x0440         ; сохранить текущий элемент во временную переменную
+LDA 0x0411         ; ACC = максимум
+CMP 0x0440         ; сравнить максимум с элементом (устанавливает флаги, не изменяет ACC)
+JC UPDATE_MAX      ; если был заем (максимум < элемент, т.е. элемент > максимума), обновить
+JMP INCREMENT_INDEX
+
+UPDATE_MAX:
+LDA 0x0440         ; ACC = новый максимум
+STA 0x0411         ; сохранить в переменную максимума
+JMP INCREMENT_INDEX ; перейти к увеличению индекса
+
+INCREMENT_INDEX:
+LDA 0x0412         ; ACC = индекс
+ADD 0x0400         ; ACC = индекс + 1
+STA 0x0412         ; сохранить новый индекс
+
+JMP LOOP_START     ; переход к началу цикла
 
 LOOP_END:
-; Результат в R0 (аккумулятор)
+LDA 0x0411         ; ACC = максимум
 HALT
         """.strip()
     
@@ -401,8 +551,8 @@ HALT
         }
         
         try:
-            if task_id == 1:  # Сумма массива
-                # Вычисляем ожидаемую сумму динамически из test_data
+            if task_id == 1:  # Поиск максимума
+                # Вычисляем ожидаемый максимум динамически из test_data
                 test_data = task["test_data"]
                 if not test_data or len(test_data) < 2:
                     result["error"] = f"Invalid test_data for task 1: {test_data}"
@@ -412,15 +562,15 @@ HALT
                 size = test_data[0]
                 elements = test_data[1:1 + size]  # Пропускаем размер, берем только элементы
                 
-                # Вычисляем ожидаемую сумму элементов
-                expected_sum = sum(elements)
+                # Вычисляем ожидаемый максимум элементов
+                expected_max = max(elements) if elements else 0
                 
-                # Получаем результат из R0 (аккумулятор)
-                actual_sum = processor.processor.registers[0]
+                # Получаем результат из ACC (аккумулятор)
+                actual_max = processor.processor.accumulator
                 
-                result["expected"] = expected_sum
-                result["actual"] = actual_sum
-                result["success"] = (expected_sum == actual_sum)
+                result["expected"] = expected_max
+                result["actual"] = actual_max
+                result["success"] = (expected_max == actual_max)
                 
             elif task_id == 2:  # Свертка массивов
                 # Вычисляем ожидаемую свертку динамически из test_data

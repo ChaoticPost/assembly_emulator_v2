@@ -4,7 +4,7 @@ import { useEmulatorStore } from '../../store/emulatorStore';
 import './ControlPanel.css';
 
 export const ControlPanel: React.FC = () => {
-  const { executeStep, executeRemaining, reset, loadTask1Data, loadTask2Data, loading, current_task, state } = useEmulatorStore();
+  const { executeStep, executeRemaining, reset, loadTask2Data, loading, current_task, state } = useEmulatorStore();
 
   const handleStepClick = async () => {
     console.log('═══════════════════════════════════════════════════════════════');
@@ -62,21 +62,6 @@ export const ControlPanel: React.FC = () => {
           </svg>
           <span className="text-sm font-medium">Выполнить целиком</span>
         </Button>
-
-        {current_task === 1 && (
-          <Button
-            color="info"
-            size="lg"
-            className="h-16 flex flex-col items-center justify-center space-y-2"
-            onClick={loadTask1Data}
-            disabled={loading}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            <span className="text-sm font-medium">Загрузить данные для 1 задачи</span>
-          </Button>
-        )}
 
         {current_task === 2 && (
           <Button

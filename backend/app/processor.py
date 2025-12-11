@@ -218,24 +218,60 @@ class RISCProcessor:
             self.memory.ram = new_ram
             print(f"DEBUG _set_operand_value: Записано значение 0x{value:04X} (decimal {value}) по адресу 0x{operand:04X}, ram[0x{operand:04X}]={self.memory.ram[operand]}")
     
-    def update_flags(self, result: int, operation: str = ""):
-        """Обновление флагов после операции"""
-        self.processor.flags["zero"] = (result == 0)
-        self.processor.flags["negative"] = (result < 0)
+    def update_flags(self, result: int, operation: str = "", acc_before: int = 0, operand: int = 0):
+        """
+        Обновление флагов после операции для беззнаковой архитектуры (0x0000-0xFFFF)
         
-        # Проверка переполнения для 16-битных чисел
-        if result > 32767 or result < -32768:
-            self.processor.flags["overflow"] = True
+        Args:
+            result: Результат операции (уже обрезанный до 16 бит)
+            operation: Тип операции ("add", "sub", "cmp", "mul", "div", "and", "or", "xor", "not", "load")
+            acc_before: Значение аккумулятора ДО операции (для проверки переполнения)
+            operand: Значение операнда (для проверки переполнения)
+        """
+        # Приводим результат к 16-битному беззнаковому числу
+        result_unsigned = int(result) & 0xFFFF
+        
+        # Z (Zero) - флаг нуля: устанавливается в 1, если результат равен нулю
+        self.processor.flags["zero"] = (result_unsigned == 0)
+        
+        # N (Negative) - флаг знака: для беззнаковых чисел проверяем старший бит (бит 15)
+        # Если старший бит установлен, число >= 32768, что можно интерпретировать как "отрицательное"
+        # в контексте сравнения для беззнаковых чисел
+        self.processor.flags["negative"] = ((result_unsigned & 0x8000) != 0)
+        
+        # C (Carry) - флаг переноса: устанавливается при переполнении 16-битного диапазона
+        if operation == "add":
+            # Для сложения: перенос, если acc_before + operand > 0xFFFF
+            full_result = acc_before + operand
+            self.processor.flags["carry"] = (full_result > 0xFFFF)
+        elif operation == "sub":
+            # Для вычитания: перенос (заем), если acc_before < operand (результат был бы отрицательным)
+            # Для беззнаковых чисел: если acc < operand, то результат "отрицательный" (заем)
+            self.processor.flags["carry"] = (acc_before < operand)
+        elif operation == "cmp":
+            # Для сравнения: перенос, если ACC < operand (результат вычитания "отрицательный")
+            self.processor.flags["carry"] = (acc_before < operand)
         else:
+            # Для остальных операций перенос не устанавливается
+            self.processor.flags["carry"] = False
+        
+        # V (Overflow) - флаг переполнения: для беззнаковых чисел проверяем переполнение при сложении/вычитании
+        if operation == "add":
+            # Переполнение при сложении: если результат < любого из операндов
+            self.processor.flags["overflow"] = (result_unsigned < acc_before or result_unsigned < operand)
+        elif operation == "sub":
+            # Переполнение при вычитании: для беззнаковых чисел переполнение = заем (carry)
+            self.processor.flags["overflow"] = (acc_before < operand)
+        elif operation == "cmp":
+            # Для сравнения переполнение = заем
+            self.processor.flags["overflow"] = (acc_before < operand)
+        else:
+            # Для остальных операций переполнение не устанавливается
             self.processor.flags["overflow"] = False
         
-        # Упрощенная логика для флага переноса
-        if operation == "add" and result < 0:
-            self.processor.flags["carry"] = True
-        elif operation == "sub" and result > 0:
-            self.processor.flags["carry"] = True
-        else:
-            self.processor.flags["carry"] = False
+        print(f"DEBUG update_flags: result=0x{result_unsigned:04X}, operation={operation}, "
+              f"Z={self.processor.flags['zero']}, C={self.processor.flags['carry']}, "
+              f"O={self.processor.flags['overflow']}, N={self.processor.flags['negative']}")
     
     def _update_accumulator(self, value: int):
         """Обновить аккумулятор значением value"""
@@ -259,9 +295,10 @@ class RISCProcessor:
                 if mode != AddressingMode.DIRECT:
                     raise Exception(f"ADD requires DIRECT addressing mode (memory address), got {mode}")
                 val = self._get_operand_value(operand, mode)
-                result = self.processor.accumulator + val
+                acc_before = self.processor.accumulator  # Сохраняем значение ДО операции
+                result = acc_before + val
                 result = int(result) & 0xFFFF
-                self.update_flags(result, "add")
+                self.update_flags(result, "add", acc_before, val)  # Передаем значения ДО операции
                 self._update_accumulator(result)
                 print(f"DEBUG ADD: ACC={self.processor.accumulator:04X}, memory[0x{operand:04X}]={val:04X}, result={result:04X}")
             else:
@@ -274,9 +311,15 @@ class RISCProcessor:
                 if mode != AddressingMode.DIRECT:
                     raise Exception(f"SUB requires DIRECT addressing mode (memory address), got {mode}")
                 val = self._get_operand_value(operand, mode)
-                result = self.processor.accumulator - val
-                result = result & 0xFFFF
-                self.update_flags(result, "sub")
+                acc_before = self.processor.accumulator  # Сохраняем значение ДО операции
+                result = acc_before - val
+                # Правильная обработка отрицательных результатов для беззнаковых чисел
+                # Если результат отрицательный, преобразуем в беззнаковое представление
+                if result < 0:
+                    result = (result + 0x10000) & 0xFFFF
+                else:
+                    result = result & 0xFFFF
+                self.update_flags(result, "sub", acc_before, val)  # Передаем значения ДО операции
                 self._update_accumulator(result)
             else:
                 raise Exception(f"SUB requires 1 operand: SUB addr")
@@ -288,9 +331,10 @@ class RISCProcessor:
                 if mode != AddressingMode.DIRECT:
                     raise Exception(f"MUL requires DIRECT addressing mode (memory address), got {mode}")
                 val = self._get_operand_value(operand, mode)
-                result = self.processor.accumulator * val
+                acc_before = self.processor.accumulator
+                result = acc_before * val
                 result = result & 0xFFFF
-                self.update_flags(result)
+                self.update_flags(result, "mul", acc_before, val)
                 self._update_accumulator(result)
             else:
                 raise Exception(f"MUL requires 1 operand: MUL addr")
@@ -304,9 +348,10 @@ class RISCProcessor:
                 val = self._get_operand_value(operand, mode)
                 if val == 0:
                     raise Exception("Division by zero")
-                result = self.processor.accumulator // val
+                acc_before = self.processor.accumulator
+                result = acc_before // val
                 result = result & 0xFFFF
-                self.update_flags(result)
+                self.update_flags(result, "div", acc_before, val)
                 self._update_accumulator(result)
             else:
                 raise Exception(f"DIV requires 1 operand: DIV addr")
@@ -319,9 +364,10 @@ class RISCProcessor:
                 if mode != AddressingMode.DIRECT:
                     raise Exception(f"AND requires DIRECT addressing mode (memory address), got {mode}")
                 val = self._get_operand_value(operand, mode)
-                result = self.processor.accumulator & val
+                acc_before = self.processor.accumulator
+                result = acc_before & val
                 result = result & 0xFFFF
-                self.update_flags(result)
+                self.update_flags(result, "and", acc_before, val)
                 self._update_accumulator(result)
             else:
                 raise Exception(f"AND requires 1 operand: AND addr")
@@ -333,9 +379,10 @@ class RISCProcessor:
                 if mode != AddressingMode.DIRECT:
                     raise Exception(f"OR requires DIRECT addressing mode (memory address), got {mode}")
                 val = self._get_operand_value(operand, mode)
-                result = self.processor.accumulator | val
+                acc_before = self.processor.accumulator
+                result = acc_before | val
                 result = result & 0xFFFF
-                self.update_flags(result)
+                self.update_flags(result, "or", acc_before, val)
                 self._update_accumulator(result)
             else:
                 raise Exception(f"OR requires 1 operand: OR addr")
@@ -347,18 +394,20 @@ class RISCProcessor:
                 if mode != AddressingMode.DIRECT:
                     raise Exception(f"XOR requires DIRECT addressing mode (memory address), got {mode}")
                 val = self._get_operand_value(operand, mode)
-                result = self.processor.accumulator ^ val
+                acc_before = self.processor.accumulator
+                result = acc_before ^ val
                 result = result & 0xFFFF
-                self.update_flags(result)
+                self.update_flags(result, "xor", acc_before, val)
                 self._update_accumulator(result)
             else:
                 raise Exception(f"XOR requires 1 operand: XOR addr")
             
         # Формат: NOT - ACC = ~ACC
         elif instruction == "NOT":
-            result = ~self.processor.accumulator
+            acc_before = self.processor.accumulator
+            result = ~acc_before
             result = result & 0xFFFF
-            self.update_flags(result)
+            self.update_flags(result, "not", acc_before, 0)
             self._update_accumulator(result)
             
         # Команды загрузки и сохранения
@@ -372,6 +421,8 @@ class RISCProcessor:
                 val = self._get_operand_value(operand, mode)
                 val = int(val) & 0xFFFF
                 self._update_accumulator(val)
+                # Обновляем флаги после загрузки (особенно флаг zero)
+                self.update_flags(val, "load", 0, 0)
                 print(f"DEBUG LDA: ACC={self.processor.accumulator:04X}, memory[0x{operand:04X}]={val:04X}")
             else:
                 raise Exception(f"LDA requires 1 operand: LDA addr")
@@ -397,20 +448,34 @@ class RISCProcessor:
                     raise Exception(f"LDI requires IMMEDIATE addressing mode (constant value), got {mode}")
                 imm = int(imm) & 0xFFFF
                 self._update_accumulator(imm)
+                # Обновляем флаги после загрузки (особенно флаг zero)
+                self.update_flags(imm, "load", 0, 0)
                 print(f"DEBUG LDI: ACC={self.processor.accumulator:04X}, imm={imm:04X}")
             else:
                 raise Exception(f"LDI requires 1 operand: LDI imm")
             
         # Команды сравнения: операнд всегда адрес памяти
         # Формат: CMP addr - установить флаги на основе (ACC - память[addr])
+        # CMP не изменяет аккумулятор, только устанавливает флаги
         elif instruction == "CMP":
             if len(operands) >= 1:
                 operand, mode = self._parse_operand(operands[0])
                 if mode != AddressingMode.DIRECT:
                     raise Exception(f"CMP requires DIRECT addressing mode (memory address), got {mode}")
                 val = self._get_operand_value(operand, mode)
-                result = self.processor.accumulator - val
-                self.update_flags(result)
+                acc_before = self.processor.accumulator  # Сохраняем значение ДО операции
+                result = acc_before - val
+                # Правильная обработка отрицательных результатов для беззнаковых чисел
+                # Если результат отрицательный, преобразуем в беззнаковое представление
+                if result < 0:
+                    result = (result + 0x10000) & 0xFFFF
+                else:
+                    result = result & 0xFFFF
+                self.update_flags(result, "cmp", acc_before, val)  # Передаем значения ДО операции
+                # CMP не изменяет аккумулятор - он остается прежним
+                print(f"DEBUG CMP: ACC={acc_before:04X}, memory[0x{operand:04X}]={val:04X}, result={result:04X}, "
+                      f"Z={self.processor.flags['zero']}, C={self.processor.flags['carry']}, "
+                      f"N={self.processor.flags['negative']}")
             else:
                 raise Exception(f"CMP requires 1 operand: CMP addr")
         
@@ -477,6 +542,58 @@ class RISCProcessor:
                     return
             else:
                 raise Exception(f"JNC requires 1 operand: JNC address")
+        
+        # Формат: JV address - переход если V=1 (overflow)
+        elif instruction == "JV":
+            if len(operands) >= 1:
+                if self.processor.flags["overflow"]:
+                    addr, mode1 = self._parse_operand(operands[0])
+                    if mode1 == AddressingMode.IMMEDIATE:
+                        self.processor.program_counter = addr
+                    else:
+                        self.processor.program_counter = self._get_operand_value(addr, mode1)
+                    return
+            else:
+                raise Exception(f"JV requires 1 operand: JV address")
+        
+        # Формат: JNV address - переход если V=0 (no overflow)
+        elif instruction == "JNV":
+            if len(operands) >= 1:
+                if not self.processor.flags["overflow"]:
+                    addr, mode1 = self._parse_operand(operands[0])
+                    if mode1 == AddressingMode.IMMEDIATE:
+                        self.processor.program_counter = addr
+                    else:
+                        self.processor.program_counter = self._get_operand_value(addr, mode1)
+                    return
+            else:
+                raise Exception(f"JNV requires 1 operand: JNV address")
+        
+        # Формат: JN address - переход если N=1 (negative flag установлен)
+        elif instruction == "JN":
+            if len(operands) >= 1:
+                if self.processor.flags["negative"]:
+                    addr, mode1 = self._parse_operand(operands[0])
+                    if mode1 == AddressingMode.IMMEDIATE:
+                        self.processor.program_counter = addr
+                    else:
+                        self.processor.program_counter = self._get_operand_value(addr, mode1)
+                    return
+            else:
+                raise Exception(f"JN requires 1 operand: JN address")
+        
+        # Формат: JNN address - переход если N=0 (negative flag не установлен)
+        elif instruction == "JNN":
+            if len(operands) >= 1:
+                if not self.processor.flags["negative"]:
+                    addr, mode1 = self._parse_operand(operands[0])
+                    if mode1 == AddressingMode.IMMEDIATE:
+                        self.processor.program_counter = addr
+                    else:
+                        self.processor.program_counter = self._get_operand_value(addr, mode1)
+                    return
+            else:
+                raise Exception(f"JNN requires 1 operand: JNN address")
         
         elif instruction == "HALT":
             self.processor.is_halted = True

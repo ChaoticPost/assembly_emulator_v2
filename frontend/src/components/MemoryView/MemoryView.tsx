@@ -231,32 +231,41 @@ export const MemoryView: React.FC = () => {
                 ramForStep = state.memory.ram && Array.isArray(state.memory.ram) ? state.memory.ram : null;
             }
 
-            // Для задачи 1: всегда используем текущее состояние RAM для адресов 0x0100-0x010F и 0x0411
-            // так как история может быть обрезана или не содержать актуальные данные
+            // Для задачи 1: используем историю выполнения для правильного отображения состояния на каждом шаге
+            // Но гарантируем, что данные массива (0x0100-0x010F) всегда корректны из текущего состояния
             if (current_task === 1) {
+                // Создаем расширенный массив RAM для отображения
+                const extendedRam = ramForStep ? [...ramForStep] : [];
+                // Убеждаемся, что массив достаточно длинный (до 0x0411 для переменной максимума)
+                while (extendedRam.length <= 0x0411) {
+                    extendedRam.push(0);
+                }
+                
+                // Для данных массива (0x0100-0x010F) всегда используем текущее состояние RAM,
+                // так как эти данные загружаются при инициализации задачи и не изменяются во время выполнения
                 if (state.memory.ram && Array.isArray(state.memory.ram) && state.memory.ram.length > 0x010F) {
-                    // Создаем копию ramForStep или новый массив
-                    const extendedRam = ramForStep ? [...ramForStep] : [];
-                    // Убеждаемся, что массив достаточно длинный (до 0x0411 для переменной максимума)
-                    while (extendedRam.length <= 0x0411) {
-                        extendedRam.push(0);
-                    }
-                    // Копируем актуальные значения из текущего состояния RAM для адресов 0x0100-0x010F
-                    // Это гарантирует, что мы показываем реальные данные, которые были записаны в память
                     for (let addr = 0x0100; addr <= 0x010F; addr++) {
                         if (addr < state.memory.ram.length) {
                             extendedRam[addr] = state.memory.ram[addr];
                         }
                     }
-                    // Также копируем переменную максимума по адресу 0x0411
-                    if (state.memory.ram.length > 0x0411) {
+                }
+                
+                // Для переменной максимума (0x0411) используем значение из истории выполнения,
+                // если оно есть, иначе из текущего состояния RAM
+                // Это позволяет видеть, как изменяется максимум на каждом шаге
+                if (ramForStep && Array.isArray(ramForStep) && ramForStep.length > 0x0411) {
+                    const maxFromHistory = ramForStep[0x0411];
+                    if (maxFromHistory !== undefined && maxFromHistory !== null && maxFromHistory !== 0) {
+                        extendedRam[0x0411] = maxFromHistory;
+                    } else if (state.memory.ram && Array.isArray(state.memory.ram) && state.memory.ram.length > 0x0411) {
                         extendedRam[0x0411] = state.memory.ram[0x0411];
                     }
-                    ramForStep = extendedRam;
-                } else if (!ramForStep || ramForStep.length <= 0x010F) {
-                    // Если текущее состояние тоже короткое, используем то, что есть
-                    ramForStep = state.memory.ram && Array.isArray(state.memory.ram) ? state.memory.ram : ramForStep;
+                } else if (state.memory.ram && Array.isArray(state.memory.ram) && state.memory.ram.length > 0x0411) {
+                    extendedRam[0x0411] = state.memory.ram[0x0411];
                 }
+                
+                ramForStep = extendedRam;
             }
 
             // Получаем значение аккумулятора ACC из истории для отображения промежуточных значений
@@ -349,15 +358,20 @@ export const MemoryView: React.FC = () => {
                 }
 
                 // Показываем переменную максимума (адрес 0x0411 согласно примеру программы)
+                // Показываем максимум всегда, когда он установлен (даже если это первый элемент массива)
                 if (ramForStep && Array.isArray(ramForStep) && ramForStep.length > 0x0411) {
                     const maxValue = ramForStep[0x0411];
                     if (maxValue !== undefined && maxValue !== null) {
                         const numMax = typeof maxValue === 'string' ? parseInt(maxValue, 10) : Number(maxValue);
-                        if (!isNaN(numMax) && numMax !== 0) {
+                        if (!isNaN(numMax)) {
                             const maxUnsigned = (numMax >>> 0) & 0xFFFF;
-                            const maxHex = maxUnsigned.toString(16).toUpperCase().padStart(4, '0');
-                            ramHexValues.push(`[0x0411]=0x${maxHex} (максимум)`);
-                            ramDecValues.push(`[0x0411]=${maxUnsigned} (максимум)`);
+                            // Показываем максимум, если он установлен (не равен 0) или если это начальный шаг
+                            // На начальных шагах максимум может быть равен первому элементу массива
+                            if (maxUnsigned !== 0 || index === 0) {
+                                const maxHex = maxUnsigned.toString(16).toUpperCase().padStart(4, '0');
+                                ramHexValues.push(`[0x0411]=0x${maxHex} (максимум)`);
+                                ramDecValues.push(`[0x0411]=${maxUnsigned} (максимум)`);
+                            }
                         }
                     }
                 }

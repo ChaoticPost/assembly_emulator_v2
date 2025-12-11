@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from 'primereact/card';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
@@ -10,30 +10,26 @@ export const MemoryView: React.FC = () => {
     const { memory } = state;
     const [previousHistoryLength, setPreviousHistoryLength] = useState(0);
 
-    // Функция форматирования регистров в hex-формате для всех задач
-    const formatRegisters = (registers: number[]) => {
-        if (!registers || registers.length === 0) {
-            // Если регистров нет, возвращаем начальное состояние
-            return 'R0:0x0000, R1:0x0000, R2:0x0000, R3:0x0000, R4:0x0000, R5:0x0000, R6:0x0000, R7:0x0000';
-        }
+    // Функция форматирования регистров в hex-формате
+    // Для одноадресной архитектуры отображаем ACC, PC и IR
+    const formatRegisters = (registers: number[], pc?: number, ir?: number) => {
+        // Получаем ACC из массива регистров
+        const accumulator = (registers && registers.length > 0 && registers[0] !== undefined && registers[0] !== null)
+            ? registers[0] : 0;
+        const accUnsigned = (accumulator >>> 0) & 0xFFFF;
+        const accHex = accUnsigned.toString(16).toUpperCase().padStart(4, '0');
 
-        // Гарантируем, что у нас есть ровно 8 регистров
-        const regs = registers.slice(0, 8);
-        while (regs.length < 8) {
-            regs.push(0);
-        }
+        // Получаем PC
+        const pcValue = (pc !== undefined && pc !== null) ? pc : 0;
+        const pcHex = pcValue.toString(16).toUpperCase().padStart(4, '0');
 
-        // Для всех задач отображаем в hex-формате для единообразия
-        return regs.map((item, index) => {
-            // Обрабатываем undefined и null
-            const value = (item !== undefined && item !== null) ? item : 0;
+        // Получаем IR (опкод)
+        const irValue = (ir !== undefined && ir !== null) ? ir : 0;
+        const irUnsigned = (irValue >>> 0) & 0xFFFF;
+        const irHex = irUnsigned.toString(16).toUpperCase().padStart(4, '0');
 
-            // Ограничиваем значение 16-битным диапазоном (0x0000 - 0xFFFF)
-            // Обрабатываем как положительные, так и отрицательные числа
-            const unsigned = (value >>> 0) & 0xFFFF;
-            const hexString = unsigned.toString(16).toUpperCase().padStart(4, '0');
-            return `R${index}:0x${hexString}`;
-        }).join(', ');
+        // Формируем строку: ACC:0xXXXX, PC:0xXXXX, IR:0xXXXX
+        return `ACC:0x${accHex}, PC:0x${pcHex}, IR:0x${irHex}`;
     };
 
 
@@ -100,16 +96,13 @@ export const MemoryView: React.FC = () => {
                 }
             }
 
-            // Если регистров все еще нет, используем начальное состояние (все нули)
+            // Если регистров все еще нет, используем начальное состояние аккумулятора
             if (!prevRegisters || prevRegisters.length === 0) {
-                prevRegisters = [0, 0, 0, 0, 0, 0, 0, 0];
+                prevRegisters = [0];
             }
 
-            // Гарантируем, что у нас есть ровно 8 регистров
-            while (prevRegisters.length < 8) {
-                prevRegisters.push(0);
-            }
-            prevRegisters = prevRegisters.slice(0, 8);
+            // Для одноадресной архитектуры используем только аккумулятор (первый элемент)
+            prevRegisters = [prevRegisters[0] !== undefined ? prevRegisters[0] : 0];
 
             // Получаем регистры ПОСЛЕ выполнения команды
             let currentRegisters: number[] = [];
@@ -155,11 +148,8 @@ export const MemoryView: React.FC = () => {
                 currentRegisters = [...prevRegisters];  // Создаем копию массива
             }
 
-            // Гарантируем, что у нас есть ровно 8 регистров
-            while (currentRegisters.length < 8) {
-                currentRegisters.push(0);
-            }
-            currentRegisters = currentRegisters.slice(0, 8);
+            // Для одноадресной архитектуры используем только аккумулятор (первый элемент)
+            currentRegisters = [currentRegisters[0] !== undefined ? currentRegisters[0] : 0];
 
             // Отладочная информация для первых нескольких записей
             if (index < 10) {
@@ -265,12 +255,12 @@ export const MemoryView: React.FC = () => {
                 }
             }
 
-            // Получаем значение аккумулятора R0 из истории для отображения промежуточных сумм
+            // Получаем значение аккумулятора ACC из истории для отображения промежуточных значений
             let accumulatorValue = 0;
             if ((entry as any).registers_after && Array.isArray((entry as any).registers_after) && (entry as any).registers_after.length > 0) {
-                const r0Val = (entry as any).registers_after[0];
-                if (r0Val !== undefined && r0Val !== null) {
-                    accumulatorValue = typeof r0Val === 'string' ? parseInt(r0Val, 10) : Number(r0Val);
+                const accVal = (entry as any).registers_after[0];
+                if (accVal !== undefined && accVal !== null) {
+                    accumulatorValue = typeof accVal === 'string' ? parseInt(accVal, 10) : Number(accVal);
                     if (isNaN(accumulatorValue)) accumulatorValue = 0;
                     accumulatorValue = accumulatorValue & 0xFFFF;
                 }
@@ -282,8 +272,8 @@ export const MemoryView: React.FC = () => {
             let ramDecValues: string[] = [];
 
             if (current_task === 1) {
-                // Для задачи 1 показываем только непустые ячейки массива из 0x0100-0x0107
-                // И значение аккумулятора R0 для показа промежуточной суммы
+                // Для задачи 1 показываем только непустые ячейки массива из 0x0300-0x0307
+                // И значение аккумулятора ACC для показа промежуточного максимума
 
                 // Логируем для отладки первых нескольких шагов
                 if (index < 5) {
@@ -292,27 +282,27 @@ export const MemoryView: React.FC = () => {
                     console.log(`  entry.ram exists:`, !!((entry as any).ram));
                     console.log(`  ramForStep length:`, ramForStep?.length || 0);
                     console.log(`  state.memory.ram length:`, state.memory.ram?.length || 0);
-                    if (ramForStep && ramForStep.length > 0x0107) {
-                        console.log(`  ramForStep[0x0100]:`, ramForStep[0x0100], `(type: ${typeof ramForStep[0x0100]})`);
-                        console.log(`  ramForStep[0x0101]:`, ramForStep[0x0101], `(type: ${typeof ramForStep[0x0101]})`);
-                        console.log(`  ramForStep[0x0102]:`, ramForStep[0x0102], `(type: ${typeof ramForStep[0x0102]})`);
-                        console.log(`  ramForStep[0x0105]:`, ramForStep[0x0105], `(type: ${typeof ramForStep[0x0105]})`);
-                        console.log(`  ramForStep[0x0106]:`, ramForStep[0x0106], `(type: ${typeof ramForStep[0x0106]})`);
+                    if (ramForStep && ramForStep.length > 0x0307) {
+                        console.log(`  ramForStep[0x0300]:`, ramForStep[0x0300], `(type: ${typeof ramForStep[0x0300]})`);
+                        console.log(`  ramForStep[0x0301]:`, ramForStep[0x0301], `(type: ${typeof ramForStep[0x0301]})`);
+                        console.log(`  ramForStep[0x0302]:`, ramForStep[0x0302], `(type: ${typeof ramForStep[0x0302]})`);
+                        console.log(`  ramForStep[0x0305]:`, ramForStep[0x0305], `(type: ${typeof ramForStep[0x0305]})`);
+                        console.log(`  ramForStep[0x0306]:`, ramForStep[0x0306], `(type: ${typeof ramForStep[0x0306]})`);
                     }
-                    if (state.memory.ram && state.memory.ram.length > 0x0107) {
-                        console.log(`  state.memory.ram[0x0100]:`, state.memory.ram[0x0100]);
-                        console.log(`  state.memory.ram[0x0101]:`, state.memory.ram[0x0101]);
-                        console.log(`  state.memory.ram[0x0102]:`, state.memory.ram[0x0102]);
+                    if (state.memory.ram && state.memory.ram.length > 0x0307) {
+                        console.log(`  state.memory.ram[0x0300]:`, state.memory.ram[0x0300]);
+                        console.log(`  state.memory.ram[0x0301]:`, state.memory.ram[0x0301]);
+                        console.log(`  state.memory.ram[0x0302]:`, state.memory.ram[0x0302]);
                     }
                 }
 
                 // Показываем только непустые элементы массива (размер + элементы)
-                for (let addr = 0x0100; addr <= 0x0107; addr++) {
+                for (let addr = 0x0300; addr <= 0x0307; addr++) {
                     let value = 0;
                     if (ramForStep && Array.isArray(ramForStep) && ramForStep.length > addr) {
                         const rawValue = ramForStep[addr];
                         // Более тщательная проверка значения
-                        if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
+                        if (rawValue !== undefined && rawValue !== null && (typeof rawValue !== 'string' || rawValue !== '')) {
                             const numValue = typeof rawValue === 'string' ? parseInt(rawValue, 10) : Number(rawValue);
                             if (!isNaN(numValue)) {
                                 value = numValue & 0xFFFF;
@@ -322,24 +312,24 @@ export const MemoryView: React.FC = () => {
                     const unsigned = value >>> 0;
                     // Показываем только непустые ячейки (значение != 0)
                     if (unsigned !== 0) {
-                        // Показываем адрес и значение в hex формате: [0x0100]=0x0007
+                        // Показываем адрес и значение в hex формате: [0x0300]=0x0007
                         ramHexValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
-                        // Показываем адрес и значение в dec формате: [0x0100]=7
+                        // Показываем адрес и значение в dec формате: [0x0300]=7
                         ramDecValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=${unsigned}`);
                     }
 
                     // Логируем для первых нескольких адресов
-                    if (index < 5 && (addr === 0x0100 || addr === 0x0101 || addr === 0x0102 || addr === 0x0105 || addr === 0x0106)) {
+                    if (index < 5 && (addr === 0x0300 || addr === 0x0301 || addr === 0x0302 || addr === 0x0305 || addr === 0x0306)) {
                         console.log(`  Step ${index + 1}, addr=0x${addr.toString(16).toUpperCase().padStart(4, '0')}: rawValue=${ramForStep?.[addr]}, value=${value}, unsigned=${unsigned}, willShow=${unsigned !== 0}`);
                     }
                 }
 
-                // Добавляем значение аккумулятора R0 для показа промежуточной суммы
-                // Это покажет, как накапливается сумма при выполнении программы
-                // R0 показываем всегда, даже если он равен 0, так как это промежуточная сумма
+                // Добавляем значение аккумулятора ACC для показа промежуточного максимума
+                // Это покажет, как изменяется максимум при выполнении программы
+                // ACC показываем всегда, даже если он равен 0, так как это промежуточное значение
                 const accUnsigned = accumulatorValue >>> 0;
-                ramHexValues.push(`R0:0x${accUnsigned.toString(16).toUpperCase().padStart(4, '0')}`);
-                ramDecValues.push(`R0:${accUnsigned}`);
+                ramHexValues.push(`ACC:0x${accUnsigned.toString(16).toUpperCase().padStart(4, '0')}`);
+                ramDecValues.push(`ACC:${accUnsigned}`);
             } else if (current_task === 2) {
                 // Для задачи 2 показываем команды из RAM (архитектура фон Неймана) и данные массивов A и B
                 // Команды: 0x0000-0x00FF (показываем только непустые)
@@ -349,7 +339,7 @@ export const MemoryView: React.FC = () => {
                     let value = 0;
                     if (ramForStep && Array.isArray(ramForStep) && ramForStep.length > addr) {
                         const rawValue = ramForStep[addr];
-                        if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
+                        if (rawValue !== undefined && rawValue !== null && (typeof rawValue !== 'string' || rawValue !== '')) {
                             const numValue = typeof rawValue === 'string' ? parseInt(rawValue, 10) : Number(rawValue);
                             if (!isNaN(numValue)) {
                                 value = numValue & 0xFFFF;
@@ -365,14 +355,14 @@ export const MemoryView: React.FC = () => {
                         ramDecValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=${unsigned}`);
                     }
                 }
-                
+
                 // Массив A: 0x0200-0x020A
                 for (let addr = 0x0200; addr <= 0x020A; addr++) {
                     let value = 0;
                     if (ramForStep && Array.isArray(ramForStep) && ramForStep.length > addr) {
                         const rawValue = ramForStep[addr];
                         // Более тщательная проверка значения
-                        if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
+                        if (rawValue !== undefined && rawValue !== null && (typeof rawValue !== 'string' || rawValue !== '')) {
                             const numValue = typeof rawValue === 'string' ? parseInt(rawValue, 10) : Number(rawValue);
                             if (!isNaN(numValue)) {
                                 value = numValue & 0xFFFF;
@@ -386,7 +376,7 @@ export const MemoryView: React.FC = () => {
                         ramHexValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=0x${unsigned.toString(16).toUpperCase().padStart(4, '0')}`);
                         // Показываем адрес и значение в dec формате: [0x0200]=10
                         ramDecValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=${unsigned}`);
-                }
+                    }
                 }
                 // Массив B: 0x0300-0x030A
                 for (let addr = 0x0300; addr <= 0x030A; addr++) {
@@ -394,7 +384,7 @@ export const MemoryView: React.FC = () => {
                     if (ramForStep && Array.isArray(ramForStep) && ramForStep.length > addr) {
                         const rawValue = ramForStep[addr];
                         // Более тщательная проверка значения
-                        if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
+                        if (rawValue !== undefined && rawValue !== null && (typeof rawValue !== 'string' || rawValue !== '')) {
                             const numValue = typeof rawValue === 'string' ? parseInt(rawValue, 10) : Number(rawValue);
                             if (!isNaN(numValue)) {
                                 value = numValue & 0xFFFF;
@@ -410,7 +400,7 @@ export const MemoryView: React.FC = () => {
                         ramDecValues.push(`[0x${addr.toString(16).toUpperCase().padStart(4, '0')}]=${unsigned}`);
                     }
                 }
-                
+
                 // Логируем для отладки первых нескольких шагов
                 if (index < 3) {
                     console.log(`MemoryView executionData[${index}]: Проверка RAM для задачи 2`);
@@ -438,12 +428,62 @@ export const MemoryView: React.FC = () => {
                 }
             }
 
+            // Извлекаем PC и IR из истории для отображения
+            // PC ДО выполнения команды
+            let pcBefore = 0;
+            if ((entry as any).programCounter_before !== undefined && (entry as any).programCounter_before !== null) {
+                pcBefore = typeof (entry as any).programCounter_before === 'string'
+                    ? parseInt((entry as any).programCounter_before, 10)
+                    : Number((entry as any).programCounter_before);
+                if (isNaN(pcBefore)) pcBefore = 0;
+            } else if ((entry as any).programCounter !== undefined && (entry as any).programCounter !== null) {
+                pcBefore = typeof (entry as any).programCounter === 'string'
+                    ? parseInt((entry as any).programCounter, 10)
+                    : Number((entry as any).programCounter);
+                if (isNaN(pcBefore)) pcBefore = 0;
+            } else if (index > 0) {
+                // Берем PC_after из предыдущей записи
+                const prevEntry = memory.history[index - 1];
+                if ((prevEntry as any).programCounter_after !== undefined && (prevEntry as any).programCounter_after !== null) {
+                    pcBefore = typeof (prevEntry as any).programCounter_after === 'string'
+                        ? parseInt((prevEntry as any).programCounter_after, 10)
+                        : Number((prevEntry as any).programCounter_after);
+                    if (isNaN(pcBefore)) pcBefore = 0;
+                }
+            }
+
+            // PC ПОСЛЕ выполнения команды
+            let pcAfter = pcBefore; // По умолчанию равен PC_before
+            if ((entry as any).programCounter_after !== undefined && (entry as any).programCounter_after !== null) {
+                pcAfter = typeof (entry as any).programCounter_after === 'string'
+                    ? parseInt((entry as any).programCounter_after, 10)
+                    : Number((entry as any).programCounter_after);
+                if (isNaN(pcAfter)) pcAfter = pcBefore;
+            } else if ((entry as any).programCounter !== undefined && (entry as any).programCounter !== null) {
+                pcAfter = typeof (entry as any).programCounter === 'string'
+                    ? parseInt((entry as any).programCounter, 10)
+                    : Number((entry as any).programCounter);
+                if (isNaN(pcAfter)) pcAfter = pcBefore;
+            }
+
+            // IR (Instruction Register) - опкод команды
+            let irValue = 0;
+            if ((entry as any).instruction_register !== undefined && (entry as any).instruction_register !== null) {
+                irValue = typeof (entry as any).instruction_register === 'string'
+                    ? parseInt((entry as any).instruction_register, 16)
+                    : Number((entry as any).instruction_register);
+                if (isNaN(irValue)) irValue = 0;
+            }
+
+            // IR_asm (ассемблерное представление команды) - не используется в formatRegisters, но может быть полезен для отладки
+            // let irAsm = (entry as any).instruction_register_asm || commandText;
+
             return {
                 step: index + 1,
                 command: commandText,
                 phase: phase,
-                registersBefore: formatRegisters(prevRegisters),
-                registersAfter: formatRegisters(currentRegisters),
+                registersBefore: formatRegisters(prevRegisters, pcBefore, irValue),
+                registersAfter: formatRegisters(currentRegisters, pcAfter, irValue),
                 flags: `Z=${currentFlags.zero ? 1 : 0} C=${currentFlags.carry ? 1 : 0} O=${currentFlags.overflow ? 1 : 0} N=${currentFlags.negative ? 1 : 0}`,
                 ramHex: ramHexValues.length > 0 ? ramHexValues.join(', ') : '-',
                 ramDec: ramDecValues.length > 0 ? ramDecValues.join(', ') : '-'
@@ -455,8 +495,8 @@ export const MemoryView: React.FC = () => {
         state.processor.registers,
         state.processor.program_counter,
         // Добавляем зависимость от RAM для задачи 1, чтобы пересчитывать при изменении памяти
-        current_task === 1 && state.memory.ram && state.memory.ram.length > 0x0107 
-            ? JSON.stringify(state.memory.ram.slice(0x0100, 0x0108)) 
+        current_task === 1 && state.memory.ram && state.memory.ram.length > 0x0107
+            ? JSON.stringify(state.memory.ram.slice(0x0100, 0x0108))
             : null,
         // Добавляем зависимость от содержимого истории для принудительного пересчета
         // Используем JSON.stringify для глубокого сравнения истории выполнения
@@ -464,7 +504,7 @@ export const MemoryView: React.FC = () => {
         memory.history.length > 0 ? JSON.stringify(memory.history.map((e: any) => {
             const maxRamAddr = current_task === 2 ? 0x030A + 1 : (current_task === 1 ? 0x0108 : 0x0200);
             return {
-            phase: e.execution_phase,
+                phase: e.execution_phase,
                 ram_after: e.ram_after ? e.ram_after.slice(0, Math.min(e.ram_after.length, maxRamAddr)) : null,
                 ram: e.ram ? e.ram.slice(0, Math.min(e.ram.length, maxRamAddr)) : null
             };
@@ -550,14 +590,14 @@ export const MemoryView: React.FC = () => {
                                         />
                                         <Column
                                             field="registersBefore"
-                                            header="РЕГИСТРЫ ДО"
+                                            header="РЕГИСТРЫ ДО (ACC, PC, IR)"
                                             body={(rowData) => (
                                                 <span className="font-mono text-orange-600">{rowData.registersBefore}</span>
                                             )}
                                         />
                                         <Column
                                             field="registersAfter"
-                                            header="РЕГИСТРЫ ПОСЛЕ"
+                                            header="РЕГИСТРЫ ПОСЛЕ (ACC, PC, IR)"
                                             body={(rowData) => (
                                                 <span className="font-mono text-green-600">{rowData.registersAfter}</span>
                                             )}
@@ -659,14 +699,14 @@ export const MemoryView: React.FC = () => {
                                 />
                                 <Column
                                     field="registersBefore"
-                                    header="РЕГИСТРЫ ДО"
+                                    header="РЕГИСТРЫ ДО (ACC, PC, IR)"
                                     body={(rowData) => (
                                         <span className="font-mono text-orange-600">{rowData.registersBefore}</span>
                                     )}
                                 />
                                 <Column
                                     field="registersAfter"
-                                    header="РЕГИСТРЫ ПОСЛЕ"
+                                    header="РЕГИСТРЫ ПОСЛЕ (ACC, PC, IR)"
                                     body={(rowData) => (
                                         <span className="font-mono text-green-600">{rowData.registersAfter}</span>
                                     )}

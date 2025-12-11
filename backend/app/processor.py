@@ -520,6 +520,12 @@ class RISCProcessor:
             self.processor.current_command = self._current_instruction_line
             self.processor.instruction_register_asm = self._current_instruction_line
             
+            # Определяем опкод команды для IR
+            parts = self._current_instruction_line.replace(',', ' ').split()
+            instruction_name = parts[0] if parts else ""
+            ir_value = self.instructions.get(instruction_name, 0)
+            self.processor.instruction_register = ir_value
+            
             # Сохраняем в историю с фазой fetch
             registers_before_final = registers_before if registers_before else [0]
             
@@ -556,7 +562,10 @@ class RISCProcessor:
                     'negative': bool(flags_before.get('negative', False))
                 },
                 'programCounter': int(pc_before),
-                'programCounter_before': int(pc_before)
+                'programCounter_before': int(pc_before),
+                'programCounter_after': int(pc_before),  # В fetch PC не меняется
+                'instruction_register': int(ir_value) & 0xFFFF,
+                'instruction_register_asm': str(self._current_instruction_line).strip()
             }
             # Форматируем аккумулятор для вывода
             acc_str = f"ACC=0x{accumulator_before:04X}({accumulator_before})"
@@ -593,6 +602,10 @@ class RISCProcessor:
             # Сохраняем состояние RAM на момент decode
             ram_state = list(self.memory.ram) if self.memory.ram else []
             
+            # Получаем IR и IR_asm
+            ir_value = int(self.processor.instruction_register) & 0xFFFF
+            ir_asm = str(self.processor.instruction_register_asm) if self.processor.instruction_register_asm else str(instruction_line).strip()
+            
             history_entry = {
                 'command': str(instruction_line).strip(),
                 'instruction': str(self._current_instruction).strip(),
@@ -623,7 +636,10 @@ class RISCProcessor:
                     'negative': bool(flags_before.get('negative', False))
                 },
                 'programCounter': int(pc_before),
-                'programCounter_before': int(pc_before)
+                'programCounter_before': int(pc_before),
+                'programCounter_after': int(pc_before),  # В decode PC не меняется
+                'instruction_register': int(ir_value) & 0xFFFF,
+                'instruction_register_asm': ir_asm
             }
             # Форматируем аккумулятор для вывода
             acc_str = f"ACC=0x{accumulator_before:04X}({accumulator_before})"
@@ -696,6 +712,10 @@ class RISCProcessor:
                 
                 # ram_before_state и ram_after_state уже сохранены выше
                 
+                # Получаем IR и IR_asm для execute фазы
+                ir_value_before = int(self.processor.instruction_register) & 0xFFFF
+                ir_asm = str(self.processor.instruction_register_asm) if self.processor.instruction_register_asm else str(instruction_line).strip()
+                
                 history_entry = {
                     'command': str(instruction_line).strip(),
                     'instruction': str(instruction).strip(),
@@ -726,7 +746,10 @@ class RISCProcessor:
                         'negative': bool(flags_after.get('negative', False))
                     },
                     'programCounter': int(pc_after),
-                    'programCounter_before': int(pc_before)
+                    'programCounter_before': int(pc_before),
+                    'programCounter_after': int(pc_after),
+                    'instruction_register': int(ir_value_before) & 0xFFFF,
+                    'instruction_register_asm': ir_asm
                 }
                 self.memory.history.append(history_entry)
                 
